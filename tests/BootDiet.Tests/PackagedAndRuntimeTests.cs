@@ -158,7 +158,7 @@ public class PackagedAndRuntimeTests
         Assert.Equal(3, summary.FinancialProcesses);
         Assert.Equal(40L << 20, summary.FinancialMemoryBytes);
         Assert.Equal(1, summary.FinancialExposedPorts);
-        Assert.Equal("▶ 실행 중: 프로세스 2개 · 메모리 20MB · 포트 TCP 14430(외부 접속 가능), TCP 14440", MeasurementSummary.ProductLine(ipinside));
+        Assert.Equal("▶ 실행 중: 프로세스 2개 · 메모리 20MB · 포트 TCP 14430(외부 접속 가능), TCP 14440", MeasurementSummary.ProductLines(ipinside).Single());
     }
 
     [Fact]
@@ -174,7 +174,7 @@ public class PackagedAndRuntimeTests
         var lines = MeasurementSummary.Build([], new Dictionary<string, ProductRuntime>(), snapshot).ToLines().ToList();
 
         Assert.Contains("  최근 부팅 2회: 평균 50.0초 (최대 60.0초), 그중 로그인 뒤 준비 시간 평균 27.5초", lines);
-        Assert.Contains("  부팅을 늦게 만든 앱: nProtect 2.0초(2회)", lines);
+        Assert.Contains("  부팅을 늦게 만든 것(총합 순): nProtect 2회·평균 2.0초", lines);
         Assert.Contains("  (포트을(를) 읽지 못함: 테스트)", lines);
     }
 

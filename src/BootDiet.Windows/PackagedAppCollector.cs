@@ -19,7 +19,9 @@ public sealed class PackagedAppCollector : ICollector
         if (packages is null)
             yield break;
 
-        foreach (var fullName in packages.GetSubKeyNames())
+        // 같은 앱의 옛 버전 패키지가 함께 등록돼 있으면 같은 시작 작업이 두 번 나온다. 위치(가족 이름+작업 ID)로 한 번만.
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var fullName in packages.GetSubKeyNames().OrderByDescending(n => n, StringComparer.OrdinalIgnoreCase))
         {
             if (PackagedStartupManifest.IsWindowsPackage(fullName))
                 continue;
@@ -48,7 +50,9 @@ public sealed class PackagedAppCollector : ICollector
                 var family = PackagedStartupManifest.FamilyName(fullName);
                 using var stateKey = hkcu.OpenSubKey($@"{PackagedStartupManifest.SystemAppDataKey}\{family}\{task.TaskId}");
                 var state = stateKey?.GetValue("State") as int?;
-                yield return PackagedStartupManifest.ToComponent(fullName, root, task, state);
+                var component = PackagedStartupManifest.ToComponent(fullName, root, task, state);
+                if (seen.Add(component.Location ?? component.Id))
+                    yield return component;
             }
         }
     }

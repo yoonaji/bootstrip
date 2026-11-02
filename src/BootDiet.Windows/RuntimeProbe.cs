@@ -142,13 +142,20 @@ public static class RuntimeProbe
 
     private static IReadOnlyList<SlowStartSample> ReadSlowStarts()
     {
+        // 101 앱, 102 드라이버, 103 서비스. 금융 모듈은 대부분 서비스·드라이버라 102·103도 읽는다.
         var result = new List<SlowStartSample>();
-        foreach (var e in ReadEvents(101, 50))
+        foreach (var (id, kind) in new[] { (101, "앱"), (102, "드라이버"), (103, "서비스") })
         {
-            var data = EventData(e);
-            result.Add(new SlowStartSample(e.TimeCreated ?? DateTime.MinValue,
-                data.GetValueOrDefault("FriendlyName") ?? data.GetValueOrDefault("Name") ?? "?",
-                data.GetValueOrDefault("Name"), Int(data, "TotalTime"), Int(data, "DegradationTime")));
+            foreach (var e in ReadEvents(id, 50))
+            {
+                var data = EventData(e);
+                var name = data.GetValueOrDefault("Name");
+                var shortName = string.IsNullOrWhiteSpace(name) ? null : name.Split('\\', '/').Last();
+                var friendly = data.GetValueOrDefault("FriendlyName");
+                result.Add(new SlowStartSample(e.TimeCreated ?? DateTime.MinValue,
+                    string.IsNullOrWhiteSpace(friendly) ? shortName ?? "?" : friendly,
+                    shortName, Int(data, "TotalTime"), Int(data, "DegradationTime"), kind));
+            }
         }
         return result;
     }
