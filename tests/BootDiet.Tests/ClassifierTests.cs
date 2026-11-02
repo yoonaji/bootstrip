@@ -33,7 +33,7 @@ public class ClassifierTests
     [InlineData("Java Update Scheduler", RecommendedAction.Disable, ItemCategory.Updater)]
     [InlineData("QfinderPro.exe", RecommendedAction.Disable, ItemCategory.GeneralApp)]
     [InlineData("Program", RecommendedAction.Remove, ItemCategory.Broken)]
-    [InlineData("REPORTXSvc.exe", RecommendedAction.Review, ItemCategory.Unknown)]
+    [InlineData("REPORTXSvc.exe", RecommendedAction.Remove, ItemCategory.FinancialSecurity)]
     [InlineData("Warp", RecommendedAction.Review, ItemCategory.Unknown)]
     public void ClassifiesScreenshotItems(string name, RecommendedAction action, ItemCategory category)
     {
