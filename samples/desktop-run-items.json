@@ -1,9 +1,11 @@
 {
   "_comment": "데스크톱 실측 데이터(measured.csv)의 Run 키 항목. 사용자 폴더 이름은 user로 바꿈. _expected는 측정 당시 사람이 붙인 분류.",
-  "items": [
+  "components": [
     {
       "name": "LGHUB",
-      "location": "RunMachine",
+      "kind": "RunKey",
+      "scope": "Machine",
+      "location": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
       "command": "\"C:\\Program Files\\LGHUB\\system_tray\\lghub_system_tray.exe\" --minimized",
       "enabled": true,
       "company": "Logitech, Inc.",
@@ -11,7 +13,9 @@
     },
     {
       "name": "CrossEXService",
-      "location": "RunMachine",
+      "kind": "RunKey",
+      "scope": "Machine",
+      "location": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
       "command": "C:\\Program Files (x86)\\iniLINE\\CrossEX\\crossex\\CrossEXService.exe",
       "enabled": true,
       "company": "iniLINE Co., Ltd.",
@@ -19,7 +23,9 @@
     },
     {
       "name": "electron.app.Notion",
-      "location": "RunUser",
+      "kind": "RunKey",
+      "scope": "User",
+      "location": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
       "command": "C:\\Users\\user\\AppData\\Local\\Programs\\Notion\\Notion.exe --open-at-login",
       "enabled": true,
       "company": "Notion Labs, Inc",
@@ -27,7 +33,9 @@
     },
     {
       "name": "Teams",
-      "location": "RunUser",
+      "kind": "RunKey",
+      "scope": "User",
+      "location": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
       "command": "\"C:\\Users\\user\\AppData\\Local\\Microsoft\\WindowsApps\\MSTeams_8wekyb3d8bbwe\\ms-teams.exe\" msteams:system-initiated",
       "enabled": true,
       "company": null,
@@ -35,7 +43,9 @@
     },
     {
       "name": "KakaoTalk",
-      "location": "RunMachine",
+      "kind": "RunKey",
+      "scope": "Machine",
+      "location": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
       "command": "\"C:\\Program Files\\Kakao\\KakaoTalk\\KakaoTalk.exe\" -bystartup",
       "enabled": true,
       "company": "Kakao Corp.",
@@ -43,7 +53,9 @@
     },
     {
       "name": "AF_uuid_com.com2us.futurecpb.pc.hive.global.normal",
-      "location": "RunMachine",
+      "kind": "RunKey",
+      "scope": "Machine",
+      "location": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
       "command": "5c3778a8-4182-4183-b449-f1a7b1c95367\u0000ormal\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000[佯?-\u0000릀om.com2",
       "enabled": true,
       "company": null,
@@ -51,7 +63,9 @@
     },
     {
       "name": "AF_counter_com.com2us.futurecpb.pc.hive.global.normal",
-      "location": "RunMachine",
+      "kind": "RunKey",
+      "scope": "Machine",
+      "location": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
       "command": "17\u0000",
       "enabled": true,
       "company": null,
@@ -59,7 +73,9 @@
     },
     {
       "name": "SecurityHealth",
-      "location": "RunMachine",
+      "kind": "RunKey",
+      "scope": "Machine",
+      "location": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
       "command": "C:\\WINDOWS\\system32\\SecurityHealthSystray.exe",
       "enabled": true,
       "company": "Microsoft Corporation",
@@ -67,7 +83,9 @@
     },
     {
       "name": "AhnLab Safe Transaction Application",
-      "location": "RunMachine",
+      "kind": "RunKey",
+      "scope": "Machine",
+      "location": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
       "command": "\"C:\\Program Files\\AhnLab\\Safe Transaction\\stsess.exe\" /tray",
       "enabled": true,
       "company": "AhnLab, Inc.",
@@ -75,7 +93,9 @@
     },
     {
       "name": "Riot Vanguard",
-      "location": "RunMachine",
+      "kind": "RunKey",
+      "scope": "Machine",
+      "location": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
       "command": "\"C:\\Program Files\\Riot Vanguard\\vgtray.exe\"",
       "enabled": true,
       "company": "Riot Games, Inc.",
@@ -83,7 +103,9 @@
     },
     {
       "name": "TeamsMachineInstaller",
-      "location": "RunMachine",
+      "kind": "RunKey",
+      "scope": "Machine",
+      "location": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
       "command": "C:\\Program Files\\Teams Installer\\Teams.exe --checkInstall --source=PROPLUS",
       "enabled": false,
       "company": null,
@@ -91,7 +113,9 @@
     },
     {
       "name": "HncUpdateTray",
-      "location": "RunMachine",
+      "kind": "RunKey",
+      "scope": "Machine",
+      "location": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
       "command": "C:\\Program Files (x86)\\Hnc\\Office 2020\\HncUtils\\Service\\HncUpdateTray.exe",
       "enabled": true,
       "company": "Hancom Inc.",
@@ -99,7 +123,9 @@
     },
     {
       "name": "SmartCert",
-      "location": "RunMachine",
+      "kind": "RunKey",
+      "scope": "Machine",
+      "location": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
       "command": "C:\\Program Files (x86)\\DreamSecurity\\SmartCert\\SmartCert.exe",
       "enabled": true,
       "company": "(주)드림시큐리티",
@@ -107,7 +133,9 @@
     },
     {
       "name": "ipinside-lws",
-      "location": "RunMachine",
+      "kind": "RunKey",
+      "scope": "Machine",
+      "location": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
       "command": "C:\\Program Files (x86)\\IPinside_LWS\\I3GProc.exe",
       "enabled": true,
       "company": "Interezen. Co., Ltd.",
@@ -115,7 +143,9 @@
     },
     {
       "name": "AnySign4PC",
-      "location": "RunMachine",
+      "kind": "RunKey",
+      "scope": "Machine",
+      "location": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
       "command": "\"C:\\Program Files (x86)\\SoftForum\\XecureWeb\\AnySign\\dll\\AnySign4PC.exe\" \"port=10530;port_s=10531;no_shut=1\"",
       "enabled": true,
       "company": null,

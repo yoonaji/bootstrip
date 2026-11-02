@@ -7,20 +7,20 @@ namespace BootDiet.Windows;
 
 /// <summary>Run 레지스트리 키(사용자, 시스템 64비트, 시스템 32비트)에 등록된 시작 항목을 읽는다.</summary>
 [SupportedOSPlatform("windows")]
-public sealed class RunKeyCollector : IStartupCollector
+public sealed class RunKeyCollector : ICollector
 {
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
-    private static readonly (RegistryHive Hive, RegistryView View, StartupLocation Location, string ApprovedSubKey)[] Sources =
+    private static readonly (RegistryHive Hive, RegistryView View, Scope Scope, string ApprovedSubKey, string Location)[] Sources =
     [
-        (RegistryHive.CurrentUser, RegistryView.Registry64, StartupLocation.RunUser, "Run"),
-        (RegistryHive.LocalMachine, RegistryView.Registry64, StartupLocation.RunMachine, "Run"),
-        (RegistryHive.LocalMachine, RegistryView.Registry32, StartupLocation.RunMachine32, "Run32"),
+        (RegistryHive.CurrentUser, RegistryView.Registry64, Scope.User, "Run", $@"HKCU\{RunKey}"),
+        (RegistryHive.LocalMachine, RegistryView.Registry64, Scope.Machine, "Run", $@"HKLM\{RunKey}"),
+        (RegistryHive.LocalMachine, RegistryView.Registry32, Scope.Machine32, "Run32", @"HKLM\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run"),
     ];
 
-    public IEnumerable<StartupItem> Collect()
+    public IEnumerable<Component> Collect()
     {
-        foreach (var (hive, view, location, approvedSubKey) in Sources)
+        foreach (var (hive, view, scope, approvedSubKey, location) in Sources)
         {
             using var root = RegistryKey.OpenBaseKey(hive, view);
             using var key = root.OpenSubKey(RunKey);
@@ -30,9 +30,11 @@ public sealed class RunKeyCollector : IStartupCollector
             foreach (var name in key.GetValueNames())
             {
                 var command = ReadAsText(key, name);
-                yield return new StartupItem
+                yield return new Component
                 {
                     Name = name,
+                    Kind = ComponentKind.RunKey,
+                    Scope = scope,
                     Location = location,
                     Command = command,
                     ExecutablePath = CommandLineParser.ExtractExecutablePath(command),

@@ -18,6 +18,12 @@ public sealed record Rule
     public required RecommendedAction Action { get; init; }
     public required string Reason { get; init; }
     public required RuleMatch Match { get; init; }
+
+    /// <summary>
+    /// true면 이 규칙은 "메신저", "오디오 유틸"처럼 여러 제품에 걸친 분류용 규칙이다.
+    /// 걸린 구성 요소를 하나로 묶지 않고 앱(제품명 또는 파일명)마다 따로 묶는다.
+    /// </summary>
+    public bool PerApp { get; init; }
 }
 
 public sealed record RuleMatch
@@ -25,17 +31,34 @@ public sealed record RuleMatch
     /// <summary>실행 파일 이름. * 와일드카드 사용 가능 (예: "veraport*.exe").</summary>
     public IReadOnlyList<string> FileNames { get; init; } = [];
     public IReadOnlyList<string> NameContains { get; init; } = [];
+
+    /// <summary>실행 파일 경로나 명령줄에 포함된 문자열. 사용자 폴더 이름은 비교 전에 지운다.</summary>
     public IReadOnlyList<string> PathContains { get; init; } = [];
     public IReadOnlyList<string> CompanyContains { get; init; } = [];
     public IReadOnlyList<string> SignerContains { get; init; } = [];
 
-    public bool IsMatch(StartupItem item)
+    /// <summary>서비스 이름(와일드카드 가능). 서비스 구성 요소에만 적용.</summary>
+    public IReadOnlyList<string> ServiceNames { get; init; } = [];
+
+    /// <summary>드라이버 이름(와일드카드 가능). 드라이버 구성 요소에만 적용.</summary>
+    public IReadOnlyList<string> DriverNames { get; init; } = [];
+
+    /// <summary>루트 인증서 이름(주체)에 포함된 문자열. 인증서 구성 요소에만 적용.</summary>
+    public IReadOnlyList<string> CertNames { get; init; } = [];
+
+    public bool IsMatch(Component c)
     {
-        return FileNames.Any(p => WildcardMatch(item.FileName, p))
-            || NameContains.Any(s => Contains(item.Name, s))
-            || PathContains.Any(s => Contains(item.ExecutablePath, s) || Contains(item.Command, s))
-            || CompanyContains.Any(s => Contains(item.Company, s))
-            || SignerContains.Any(s => Contains(item.Signer, s));
+        var path = PathText.WithoutUserFolder(c.ExecutablePath);
+        var command = PathText.WithoutUserFolder(c.Command);
+
+        return FileNames.Any(p => WildcardMatch(c.FileName, p))
+            || NameContains.Any(s => Contains(c.Name, s))
+            || PathContains.Any(s => Contains(path, s) || Contains(command, s))
+            || CompanyContains.Any(s => Contains(c.Company, s))
+            || SignerContains.Any(s => Contains(c.Signer, s))
+            || (c.Kind == ComponentKind.Service && ServiceNames.Any(p => WildcardMatch(c.Name, p)))
+            || (c.Kind == ComponentKind.Driver && DriverNames.Any(p => WildcardMatch(c.Name, p)))
+            || (c.Kind == ComponentKind.RootCertificate && CertNames.Any(s => Contains(c.Name, s)));
     }
 
     private static bool Contains(string? text, string value) =>
@@ -46,6 +69,20 @@ public sealed record RuleMatch
         var regex = "^" + Regex.Escape(pattern).Replace("\\*", ".*") + "$";
         return Regex.IsMatch(text, regex, RegexOptions.IgnoreCase);
     }
+}
+
+/// <summary>경로 비교 도우미.</summary>
+public static partial class PathText
+{
+    /// <summary>
+    /// C:\Users\ASUS\AppData\... 의 "ASUS"처럼 사용자 폴더 이름이 제조사 규칙에 걸리지 않도록
+    /// 사용자 폴더 부분을 %USERPROFILE%로 바꾼다.
+    /// </summary>
+    public static string? WithoutUserFolder(string? text) =>
+        text is null ? null : UserFolder().Replace(text, "%USERPROFILE%\\");
+
+    [GeneratedRegex(@"[A-Za-z]:\\Users\\[^\\""]+\\", RegexOptions.IgnoreCase)]
+    private static partial Regex UserFolder();
 }
 
 public sealed record RuleSet(IReadOnlyList<Rule> Rules)

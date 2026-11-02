@@ -37,7 +37,7 @@ public class ClassifierTests
     [InlineData("Warp", RecommendedAction.Review, ItemCategory.Unknown)]
     public void ClassifiesScreenshotItems(string name, RecommendedAction action, ItemCategory category)
     {
-        var item = ItemFile.Load(TestData.PathOf("samples", "screenshot-items.json")).Single(i => i.Name == name);
+        var item = ComponentFile.Load(TestData.PathOf("samples", "screenshot-items.json")).Single(i => i.Name == name);
 
         var verdict = TestData.Classifier.Classify(item);
 
@@ -48,7 +48,7 @@ public class ClassifierTests
     [Fact]
     public void EveryScreenshotItemHasAnExpectation()
     {
-        var count = ItemFile.Load(TestData.PathOf("samples", "screenshot-items.json")).Count;
+        var count = ComponentFile.Load(TestData.PathOf("samples", "screenshot-items.json")).Count;
         Assert.Equal(27, count);
     }
 
@@ -57,12 +57,13 @@ public class ClassifierTests
     public void AgreesWithHumanLabelsOnDesktopData()
     {
         var path = TestData.PathOf("samples", "desktop-run-items.json");
-        var expected = JsonDocument.Parse(File.ReadAllText(path)).RootElement.GetProperty("items")
+        var expected = JsonDocument.Parse(File.ReadAllText(path)).RootElement.GetProperty("components")
             .EnumerateArray()
             .ToDictionary(e => e.GetProperty("name").GetString()!, e => e.GetProperty("_expected").GetString());
 
-        foreach (var (item, verdict) in TestData.Classifier.ClassifyAll(ItemFile.Load(path)))
+        foreach (var item in ComponentFile.Load(path))
         {
+            var verdict = TestData.Classifier.Classify(item);
             switch (expected[item.Name])
             {
                 case "금융 보안모듈":
@@ -83,10 +84,10 @@ public class ClassifierTests
     public void UserFolderNamedAfterVendorDoesNotMatchVendorRule()
     {
         // 사용자 폴더 이름이 C:\Users\ASUS 인 PC에서 Notion이 ASUS 유틸로 잘못 분류되던 문제
-        var item = new StartupItem
+        var item = new Component
         {
             Name = "electron.app.Notion",
-            Location = StartupLocation.RunUser,
+            Kind = ComponentKind.RunKey,
             ExecutablePath = @"C:\Users\ASUS\AppData\Local\Programs\Notion\Notion.exe",
         };
 
