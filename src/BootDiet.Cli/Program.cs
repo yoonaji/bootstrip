@@ -53,7 +53,7 @@ static int Scan(Dictionary<string, string?> options)
     if (options.TryGetValue("json", out var jsonPath))
         ComponentFile.SaveProducts(jsonPath!, products);
 
-    Print(components.Count, products);
+    Print(components.Count, products, options.ContainsKey("all"));
     if (hidden > 0)
         Console.WriteLine($"(Windows 자체 구성 요소 {hidden}개는 정리 대상이 아니라서 뺐습니다.)");
     if (firewallOnly > 0)
@@ -61,7 +61,7 @@ static int Scan(Dictionary<string, string?> options)
     return 0;
 }
 
-static void Print(int componentCount, IReadOnlyList<Product> products)
+static void Print(int componentCount, IReadOnlyList<Product> products, bool showAll)
 {
     (RecommendedAction Action, string Title)[] groups =
     [
@@ -84,6 +84,12 @@ static void Print(int componentCount, IReadOnlyList<Product> products)
         {
             var state = product.Enabled ? "" : " [현재 꺼짐]";
             var vendor = product.Vendor is null ? "" : $" · {product.Vendor}";
+            // "유지"는 할 일이 없으니 한 줄로 줄인다. 자세히 보려면 --all.
+            if (action == RecommendedAction.Keep && !showAll)
+            {
+                Console.WriteLine($"  - {product.Name}{vendor} ({Summary(product)})");
+                continue;
+            }
             Console.WriteLine($"  - {product.Name}{vendor}{state}");
             Console.WriteLine($"      {product.Verdict.Reason}");
             foreach (var c in product.Components)
@@ -97,6 +103,22 @@ static void Print(int componentCount, IReadOnlyList<Product> products)
         Console.WriteLine();
     }
 }
+
+static string Summary(Product p) => string.Join(", ", p.Components
+    .GroupBy(c => c.Kind)
+    .Select(g => $"{KindShort(g.Key)} {g.Count()}"));
+
+static string KindShort(ComponentKind kind) => kind switch
+{
+    ComponentKind.RunKey or ComponentKind.StartupFolder => "시작 앱",
+    ComponentKind.Service => "서비스",
+    ComponentKind.ScheduledTask => "예약 작업",
+    ComponentKind.PackagedApp => "스토어 앱",
+    ComponentKind.Driver => "드라이버",
+    ComponentKind.RootCertificate => "인증서",
+    ComponentKind.FirewallRule => "방화벽",
+    _ => kind.ToString(),
+};
 
 static string KindLabel(Component c) => (c.Kind, c.Scope) switch
 {
@@ -124,6 +146,7 @@ static int Help()
           --save <파일>                    수집한 구성 요소 목록 저장
           --json <파일>                    판정 결과(제품 목록) 저장
           --rules <파일>                   다른 규칙 파일 사용
+          --all                            "유지" 제품도 구성 요소까지 자세히 보기
 
         아직 없는 명령: plan, apply, restore, bank, check, report (구현 계획 4단계부터 추가)
         """);

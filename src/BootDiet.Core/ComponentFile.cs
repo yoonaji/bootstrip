@@ -26,7 +26,7 @@ public static class ComponentFile
     {
         var components = JsonSerializer.Deserialize<ComponentsWrapper>(File.ReadAllText(path), Options)?.Components ?? [];
         return components
-            .Select(c => c.ExecutablePath is null && c.Command is not null
+            .Select(c => c.ExecutablePath is null && c.Command is not null && c.Kind != ComponentKind.RootCertificate
                 ? c with { ExecutablePath = CommandLineParser.ExtractExecutablePath(c.Command) }
                 : c)
             .ToList();

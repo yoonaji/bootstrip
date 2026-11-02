@@ -50,6 +50,7 @@ public static class RootCertificateEntry
             Command = cert.Subject,
             Enabled = true,
             Detail = $"{cert.NotAfter:yyyy-MM-dd}까지 유효 · 지문 {cert.Thumbprint[..8]}",
+            ValidUntil = new DateTimeOffset(cert.NotAfter.ToUniversalTime(), TimeSpan.Zero),
         };
     }
 
