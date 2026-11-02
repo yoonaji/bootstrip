@@ -10,4 +10,8 @@
     <ProjectReference Include="..\BootDiet.Core\BootDiet.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.14" />
+  </ItemGroup>
+
 </Project>

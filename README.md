@@ -1,13 +1,13 @@
 # 부트다이어트(가칭)
 
 Windows 시작 앱과 국내 금융 보안 모듈을 자동으로 찾아 **제품 단위로** 묶고 **유지 / 사용 안 함 / 뱅킹 모드 / 제거 / 확인 필요**로 판정하는 프로그램입니다.
-지금은 구현 계획의 0~2단계 일부(읽기 전용 수집: 시작 앱·서비스·드라이버·예약 작업 + 규칙 판정 + 제품 묶기)까지 들어 있고, PC의 설정은 아무것도 바꾸지 않습니다.
+지금은 구현 계획의 0~2단계(읽기 전용 수집 7종 + 규칙 판정 + 제품 묶기)와 3단계 측정 일부(실행 중 프로세스·메모리, 열린 포트, 부팅 기록)까지 들어 있고, PC의 설정은 아무것도 바꾸지 않습니다.
 
 요구사항과 설계의 기준은 [프로젝트 문서](https://claude.ai/artifact/YZaEuk5QrcCcvVSu5JVpon)의 "요구사항 명세"·"설계" 탭입니다.
 
 ## 용어
 
-- **구성 요소(Component)**: 자동 실행 단위 하나. 시작 앱(Run 키·시작 폴더), 서비스, 예약 작업, 드라이버, 루트 인증서, 방화벽 규칙.
+- **구성 요소(Component)**: 자동 실행 단위 하나. 시작 앱(Run 키·시작 폴더), 서비스, 예약 작업, 드라이버, 루트 인증서, 방화벽 규칙, 스토어 앱 시작 작업.
 - **제품(Product)**: 같은 프로그램에 속한 구성 요소 묶음. 화면에 보여 주고 처리하는 단위.
 
 ## 구조
@@ -43,6 +43,8 @@ dotnet publish src/BootDiet.Cli -c Release -r win-x64 --self-contained -p:Publis
 .\bootdiet.exe scan                         # 이 PC를 스캔해 제품별로 판정 (scan은 생략 가능)
 .\bootdiet.exe scan --save my-pc.json       # 수집한 구성 요소 저장 (다른 PC에서 --input 으로 테스트)
 .\bootdiet.exe scan --json result.json      # 판정 결과(제품 목록) 저장
+.\bootdiet.exe scan --no-runtime            # 실행 중 프로세스·포트·부팅 기록 측정 생략
+.\bootdiet.exe scan --all                   # '유지' 제품도 한 줄 요약 대신 전부 표시
 .\bootdiet.exe help                         # 사용법
 ```
 
@@ -64,6 +66,6 @@ dotnet publish src/BootDiet.Cli -c Release -r win-x64 --self-contained -p:Publis
 
 ## 다음 단계
 
-- 2단계 마무리: 스토어 앱 StartupTask, 서명 유효성 검증(WinVerifyTrust). 시작 앱·서비스·드라이버·예약 작업·루트 인증서·방화벽 수집기는 완료(Windows 자체 항목은 판정 전에 뺌)
-- 3단계: 성능·보안 수치 읽기 (StartupInfo XML, 부팅 이벤트 100/101, 메모리, 열린 포트)
+- 2단계 남은 것: 서명 유효성 검증(WinVerifyTrust). 수집기 7종(시작 앱·서비스·드라이버·예약 작업·루트 인증서·방화벽·스토어 앱)은 완료
+- 3단계 남은 것: 앱별 부팅 시 CPU·디스크(WDI StartupInfo XML), 끄기 전후 비교. 실행 중 프로세스·메모리, 열린 포트(외부 접속 가능 여부), 부팅 이벤트 100/101은 완료(부팅 기록은 관리자 권한이 필요할 수 있음)
 - 4단계: 백업 → 끄기 → 되돌리기
