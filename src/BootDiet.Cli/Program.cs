@@ -470,7 +470,10 @@ static int BankOn(Dictionary<string, string?> options)
         Console.WriteLine("뱅킹 모드로 둔 제품이 없습니다. 금융 보안 제품을 apply로 끄면 자동으로 뱅킹 모드가 됩니다.");
         return 0;
     }
-    var minutes = int.TryParse(options.GetValueOrDefault("minutes"), out var m) && m > 0 ? m : 30;
+    var minutesText = options.GetValueOrDefault("minutes");
+    var minutes = int.TryParse(minutesText, out var m) && m > 0 ? m : 30;
+    if (minutesText is not null && minutes != m)
+        Console.WriteLine($"--minutes 값 '{minutesText}'을(를) 숫자로 읽지 못해 기본값 30분으로 합니다.");
     var items = products.SelectMany(p => p.Items).ToList();
 
     // 서비스 켜기와 타이머 등록에는 관리자 권한이 필요하다. 관리자 창은 레지스트리·서비스만 하고,

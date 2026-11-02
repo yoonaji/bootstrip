@@ -33,7 +33,7 @@ public static class AgentTasks
     public static void Delete(string name) => Use(service =>
     {
         try { service.GetFolder(Folder).DeleteTask(name, 0); }
-        catch (COMException e) when ((uint)e.HResult is 0x80070002 or 0x80070003) { }
+        catch (Exception e) when (NotFound(e)) { }
         return 0;
     });
 
@@ -52,7 +52,7 @@ public static class AgentTasks
             bool enabled = task.Enabled;
             return command + (enabled ? "" : " (사용 안 함)");
         }
-        catch (COMException e) when ((uint)e.HResult is 0x80070002 or 0x80070003)
+        catch (Exception e) when (NotFound(e))
         {
             return null;
         }
@@ -96,7 +96,7 @@ public static class AgentTasks
             dynamic root = service.GetFolder(@"\");
             dynamic folder;
             try { folder = service.GetFolder(Folder); }
-            catch (COMException e) when ((uint)e.HResult is 0x80070002 or 0x80070003) { folder = root.CreateFolder(Folder.TrimStart('\\')); }
+            catch (Exception e) when (NotFound(e)) { folder = root.CreateFolder(Folder.TrimStart('\\')); }
             // 6 = TASK_CREATE_OR_UPDATE, 3 = TASK_LOGON_INTERACTIVE_TOKEN
             folder.RegisterTask(name, xml, 6, null, null, 3);
             return 0;
@@ -104,6 +104,12 @@ public static class AgentTasks
     }
 
     private static string Esc(string text) => SecurityElement.Escape(text) ?? "";
+
+    /// <summary>
+    /// "없음"(0x80070002 파일 없음, 0x80070003 경로 없음). COM 호출의 HRESULT는 .NET이 FileNotFoundException 등으로
+    /// 바꿔 던지므로 예외 종류가 아니라 HResult로 판단한다(집 PC에서 COMException으로 잡히지 않아 확인).
+    /// </summary>
+    private static bool NotFound(Exception e) => (uint)e.HResult is 0x80070002 or 0x80070003;
 
     private static T Use<T>(Func<dynamic, T> action)
     {
@@ -118,8 +124,9 @@ public static class AgentTasks
         {
             throw new UnauthorizedAccessException("예약 작업을 등록하려면 관리자 권한이 필요합니다.", e);
         }
-        catch (COMException e)
+        catch (Exception e) when (e is not (IOException or UnauthorizedAccessException))
         {
+            // COM 오류는 .NET이 여러 예외 종류로 바꿔 던지므로(ArgumentException 등) 모두 IOException으로 모은다.
             throw new IOException($"작업 스케줄러: {e.Message}", e);
         }
         finally

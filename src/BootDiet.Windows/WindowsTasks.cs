@@ -26,6 +26,12 @@ public sealed class WindowsTasks : ITaskAccess
         return null;
     });
 
+    /// <summary>
+    /// "없음"(0x80070002 파일 없음, 0x80070003 경로 없음). COM 호출의 HRESULT는 .NET이 FileNotFoundException 등으로
+    /// 바꿔 던지므로 예외 종류가 아니라 HResult로 판단한다(집 PC에서 COMException으로 잡히지 않아 확인).
+    /// </summary>
+    private static bool NotFound(Exception e) => (uint)e.HResult is 0x80070002 or 0x80070003;
+
     private static T Use<T>(string path, Func<dynamic, T> action)
     {
         var type = Type.GetTypeFromProgID("Schedule.Service") ?? throw new IOException("작업 스케줄러를 쓸 수 없습니다.");
@@ -41,7 +47,7 @@ public sealed class WindowsTasks : ITaskAccess
             {
                 task = service.GetFolder(folderPath).GetTask(name);
             }
-            catch (COMException e) when ((uint)e.HResult is 0x80070002 or 0x80070003)
+            catch (Exception e) when (NotFound(e))
             {
                 throw new FileNotFoundException($"예약 작업 {path} 이 없습니다.");
             }
