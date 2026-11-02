@@ -11,6 +11,12 @@ public static class ActionFiles
     public static void SaveSnapshot(string path, Snapshot snapshot) => Write(path, snapshot);
     public static Snapshot LoadSnapshot(string path) => Read<Snapshot>(path);
 
+    public static void SavePolicy(string path, Policy policy) => Write(path, policy);
+
+    /// <summary>정책 파일이 없으면 빈 정책.</summary>
+    public static Policy LoadPolicy(string path, DateTimeOffset now) =>
+        File.Exists(path) ? Read<Policy>(path) : Policy.Empty(now);
+
     /// <summary>스냅샷 폴더에서 가장 최근 파일. 없으면 null.</summary>
     public static string? LatestSnapshot(string folder) =>
         Directory.Exists(folder)

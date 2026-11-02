@@ -18,6 +18,7 @@ public enum PlanOperation
 /// <summary>
 /// 처리 계획의 한 줄. 어떤 레지스트리 값을 무엇으로 바꿀지까지 정해 두어서,
 /// 관리자 권한으로 실행되는 apply가 계획 파일 밖의 일을 하지 않게 한다(설계 탭 2장).
+/// Category·ExecutablePath·Command는 뱅킹 모드(7단계)가 무엇을 다시 켜고 어떤 프로세스를 끝낼지 알기 위한 값이다.
 /// </summary>
 public sealed record PlanAction(
     string ProductId,
@@ -27,7 +28,10 @@ public sealed record PlanAction(
     PlanOperation Operation,
     string Key,
     string ValueName,
-    bool NeedsAdmin)
+    bool NeedsAdmin,
+    ItemCategory Category = ItemCategory.Unknown,
+    string? ExecutablePath = null,
+    string? Command = null)
 {
     /// <summary>사람이 읽는 설명. 예: "시작 앱: 사용 → 사용 안 함".</summary>
     public string Description => Operation switch

@@ -35,4 +35,18 @@ public static class CommandLineParser
         var space = text.IndexOf(' ');
         return space > 0 ? text[..space] : text;
     }
+
+    /// <summary>명령줄을 실행 파일과 나머지 인수로 나눈다(뱅킹 모드에서 시작 앱을 직접 실행할 때). 못 나누면 null.</summary>
+    public static (string Executable, string Arguments)? Split(string? command, Func<string, string>? expandVariables = null)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+            return null;
+        expandVariables ??= Environment.ExpandEnvironmentVariables;
+        var text = expandVariables(command.Trim());
+        var exe = ExtractExecutablePath(text, s => s);
+        if (string.IsNullOrEmpty(exe))
+            return null;
+        var consumed = text.StartsWith('"') ? Math.Min(text.Length, exe.Length + 2) : exe.Length;
+        return (exe, text[consumed..].Trim());
+    }
 }
