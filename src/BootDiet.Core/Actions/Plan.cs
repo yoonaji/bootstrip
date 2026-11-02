@@ -11,7 +11,7 @@ public enum PlanOperation
     DisablePackagedTask,
     /// <summary>서비스: 시작 유형 자동(2) → 수동(3). 실행 중인 서비스를 멈추지는 않는다.</summary>
     SetServiceManual,
-    /// <summary>예약 작업: 사용 안 함. 5단계에서 실행기에 붙인다.</summary>
+    /// <summary>예약 작업: 사용 안 함(작업 스케줄러의 Enabled = false).</summary>
     DisableScheduledTask,
 }
 

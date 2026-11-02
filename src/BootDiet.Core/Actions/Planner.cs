@@ -11,6 +11,9 @@ public static class Planner
 {
     public const string ApprovedBase = @"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved";
 
+    /// <summary>예약 작업 계획의 Key. ValueName에 \폴더\작업 전체 경로가 들어간다.</summary>
+    public const string TaskKey = "작업 스케줄러";
+
     /// <summary>직접 골라도 끄지 않는 분류. 회사 보안은 회사 PC 정책이라 사용자가 정할 일이 아니다.</summary>
     private static readonly HashSet<ItemCategory> Protected = [ItemCategory.WindowsBuiltIn, ItemCategory.CorporateSecurity];
 
@@ -105,7 +108,8 @@ public static class Planner
                 return (Make(PlanOperation.SetServiceManual, c.Location, "Start"), null);
 
             case ComponentKind.ScheduledTask when c.Enabled:
-                return (Make(PlanOperation.DisableScheduledTask, c.Location ?? "작업 스케줄러", c.Name), null);
+                // 관리자 작업인지는 작업마다 달라 미리 알 수 없다. 권한이 모자라면 실행기가 실패로 알려 준다.
+                return (Make(PlanOperation.DisableScheduledTask, TaskKey, @"\" + c.Name.TrimStart('\\')), null);
 
             case ComponentKind.Driver:
                 return (null, "드라이버는 직접 끄지 않음(서비스와 함께 멈추는지 3차 실험 후 결정)");
