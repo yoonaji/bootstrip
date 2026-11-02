@@ -1,0 +1,125 @@
+{
+  "_comment": "데스크톱 실측 데이터(measured.csv)의 Run 키 항목. 사용자 폴더 이름은 user로 바꿈. _expected는 측정 당시 사람이 붙인 분류.",
+  "items": [
+    {
+      "name": "LGHUB",
+      "location": "RunMachine",
+      "command": "\"C:\\Program Files\\LGHUB\\system_tray\\lghub_system_tray.exe\" --minimized",
+      "enabled": true,
+      "company": "Logitech, Inc.",
+      "_expected": "제조사/드라이버 유틸"
+    },
+    {
+      "name": "CrossEXService",
+      "location": "RunMachine",
+      "command": "C:\\Program Files (x86)\\iniLINE\\CrossEX\\crossex\\CrossEXService.exe",
+      "enabled": true,
+      "company": "iniLINE Co., Ltd.",
+      "_expected": "금융 보안모듈"
+    },
+    {
+      "name": "electron.app.Notion",
+      "location": "RunUser",
+      "command": "C:\\Users\\user\\AppData\\Local\\Programs\\Notion\\Notion.exe --open-at-login",
+      "enabled": true,
+      "company": "Notion Labs, Inc",
+      "_expected": "일반 앱"
+    },
+    {
+      "name": "Teams",
+      "location": "RunUser",
+      "command": "\"C:\\Users\\user\\AppData\\Local\\Microsoft\\WindowsApps\\MSTeams_8wekyb3d8bbwe\\ms-teams.exe\" msteams:system-initiated",
+      "enabled": true,
+      "company": null,
+      "_expected": "일반 앱"
+    },
+    {
+      "name": "KakaoTalk",
+      "location": "RunMachine",
+      "command": "\"C:\\Program Files\\Kakao\\KakaoTalk\\KakaoTalk.exe\" -bystartup",
+      "enabled": true,
+      "company": "Kakao Corp.",
+      "_expected": "일반 앱"
+    },
+    {
+      "name": "AF_uuid_com.com2us.futurecpb.pc.hive.global.normal",
+      "location": "RunMachine",
+      "command": "5c3778a8-4182-4183-b449-f1a7b1c95367\u0000ormal\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000[佯?-\u0000릀om.com2",
+      "enabled": true,
+      "company": null,
+      "_expected": "잘못된 항목"
+    },
+    {
+      "name": "AF_counter_com.com2us.futurecpb.pc.hive.global.normal",
+      "location": "RunMachine",
+      "command": "17\u0000",
+      "enabled": true,
+      "company": null,
+      "_expected": "잘못된 항목"
+    },
+    {
+      "name": "SecurityHealth",
+      "location": "RunMachine",
+      "command": "C:\\WINDOWS\\system32\\SecurityHealthSystray.exe",
+      "enabled": true,
+      "company": "Microsoft Corporation",
+      "_expected": "Windows/보안"
+    },
+    {
+      "name": "AhnLab Safe Transaction Application",
+      "location": "RunMachine",
+      "command": "\"C:\\Program Files\\AhnLab\\Safe Transaction\\stsess.exe\" /tray",
+      "enabled": true,
+      "company": "AhnLab, Inc.",
+      "_expected": "금융 보안모듈"
+    },
+    {
+      "name": "Riot Vanguard",
+      "location": "RunMachine",
+      "command": "\"C:\\Program Files\\Riot Vanguard\\vgtray.exe\"",
+      "enabled": true,
+      "company": "Riot Games, Inc.",
+      "_expected": "게임/런처"
+    },
+    {
+      "name": "TeamsMachineInstaller",
+      "location": "RunMachine",
+      "command": "C:\\Program Files\\Teams Installer\\Teams.exe --checkInstall --source=PROPLUS",
+      "enabled": false,
+      "company": null,
+      "_expected": "일반 앱"
+    },
+    {
+      "name": "HncUpdateTray",
+      "location": "RunMachine",
+      "command": "C:\\Program Files (x86)\\Hnc\\Office 2020\\HncUtils\\Service\\HncUpdateTray.exe",
+      "enabled": true,
+      "company": "Hancom Inc.",
+      "_expected": "업데이터"
+    },
+    {
+      "name": "SmartCert",
+      "location": "RunMachine",
+      "command": "C:\\Program Files (x86)\\DreamSecurity\\SmartCert\\SmartCert.exe",
+      "enabled": true,
+      "company": "(주)드림시큐리티",
+      "_expected": "금융 보안모듈"
+    },
+    {
+      "name": "ipinside-lws",
+      "location": "RunMachine",
+      "command": "C:\\Program Files (x86)\\IPinside_LWS\\I3GProc.exe",
+      "enabled": true,
+      "company": "Interezen. Co., Ltd.",
+      "_expected": "금융 보안모듈"
+    },
+    {
+      "name": "AnySign4PC",
+      "location": "RunMachine",
+      "command": "\"C:\\Program Files (x86)\\SoftForum\\XecureWeb\\AnySign\\dll\\AnySign4PC.exe\" \"port=10530;port_s=10531;no_shut=1\"",
+      "enabled": true,
+      "company": null,
+      "_expected": "금융 보안모듈"
+    }
+  ]
+}
