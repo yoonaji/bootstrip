@@ -108,6 +108,11 @@ static int PlanCommand(Dictionary<string, string?> options)
         return 1;
     var only = options.GetValueOrDefault("only")?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     var plan = Planner.Build(products, only, machine: Environment.MachineName);
+    if (only is not null && plan.Actions.Count == 0 && plan.Skipped.Count == 0)
+    {
+        Console.Error.WriteLine($"'{string.Join(", ", only)}'에 해당하는 제품을 찾지 못했습니다. bootdiet scan 에 보이는 제품 이름이나 항목 이름을 써 주세요.");
+        return 1;
+    }
 
     Console.WriteLine(only is null
         ? "처리 계획 (추천이 사용 안 함·뱅킹 모드·제거인 제품을 \"사용 안 함\"으로) — 미리보기라 아무것도 바꾸지 않았습니다\n"
@@ -139,9 +144,11 @@ static int PlanCommand(Dictionary<string, string?> options)
             Console.WriteLine($"  · {g.Key}: {g.Count()}개 ({string.Join(", ", g.Select(s => s.ProductName).Distinct().Take(4))}{(g.Select(s => s.ProductName).Distinct().Count() > 4 ? " …" : "")})");
     }
 
-    if (options.TryGetValue("save", out var save))
+    if (options.TryGetValue("save", out var save) && plan.Actions.Count == 0)
+        Console.WriteLine("\n바꿀 항목이 없어서 계획을 저장하지 않았습니다.");
+    else if (save is not null)
     {
-        ActionFiles.SavePlan(save!, plan);
+        ActionFiles.SavePlan(save, plan);
         Console.WriteLine($"\n계획을 {save} 에 저장했습니다. 실행: bootdiet apply --plan {save}");
     }
     return 0;
@@ -165,6 +172,12 @@ static int ApplyCommand(Dictionary<string, string?> options)
     {
         Console.Error.WriteLine($"이 계획은 다른 PC({plan.Machine})에서 만든 것입니다. 이 PC에서 plan을 다시 만들어 주세요.");
         return 1;
+    }
+
+    if (plan.Actions.Count == 0)
+    {
+        Console.WriteLine("계획에 바꿀 항목이 없습니다. 아무것도 바꾸지 않았습니다.");
+        return 0;
     }
 
     var isAdmin = WindowsRegistry.IsAdmin();
