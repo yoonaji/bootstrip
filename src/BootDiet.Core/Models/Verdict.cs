@@ -5,6 +5,7 @@ public enum ItemCategory
     WindowsBuiltIn,
     HardwareUtility,
     FinancialSecurity,
+    CorporateSecurity, // 회사가 설치하는 보안·관리 프로그램(망분리, DRM, 자산관리)
     Game,
     Updater,
     GeneralApp,
