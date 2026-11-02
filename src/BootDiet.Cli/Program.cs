@@ -348,7 +348,7 @@ static void PrintEntries(Snapshot snapshot, bool onlyTouched = false)
         }
     }
     var counts = snapshot.Entries.GroupBy(e => e.Status).ToDictionary(g => g.Key, g => g.Count());
-    Console.WriteLine($"\n바꿈 {counts.GetValueOrDefault(EntryStatus.Changed)} · 되돌림 {counts.GetValueOrDefault(EntryStatus.Restored)} · 실패 {counts.GetValueOrDefault(EntryStatus.Failed)} · 건너뜀 {counts.GetValueOrDefault(EntryStatus.Skipped) + counts.GetValueOrDefault(EntryStatus.AlreadyOff)}");
+    Console.WriteLine($"\n바꿈 {counts.GetValueOrDefault(EntryStatus.Changed)} · 되돌림 {counts.GetValueOrDefault(EntryStatus.Restored) + counts.GetValueOrDefault(EntryStatus.RolledBack)} · 실패 {counts.GetValueOrDefault(EntryStatus.Failed)} · 건너뜀 {counts.GetValueOrDefault(EntryStatus.Skipped) + counts.GetValueOrDefault(EntryStatus.AlreadyOff)}");
 }
 
 static void Print(int componentCount, IReadOnlyList<Product> products, bool showAll, IReadOnlyDictionary<string, ProductRuntime> runtime)

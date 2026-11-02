@@ -57,7 +57,7 @@ public sealed class Executor(IRegistryAccess registry, bool isAdmin, Func<DateTi
                 }
                 catch (Exception e) when (e is UnauthorizedAccessException or System.Security.SecurityException or InvalidOperationException or IOException)
                 {
-                    failure = e is InvalidOperationException ? e.Message : "권한이 없어 바꾸지 못했습니다(자가 보호 중이거나 관리자 권한 필요).";
+                    failure = e is InvalidOperationException ? e.Message : Denied(entry.Action);
                     entries[i] = entry with { Status = EntryStatus.Failed, Message = failure };
                     break;
                 }
@@ -157,6 +157,12 @@ public sealed class Executor(IRegistryAccess registry, bool isAdmin, Func<DateTi
         persist(result);
         return result;
     }
+
+    /// <summary>관리자 권한(또는 사용자 항목)인데도 쓰기가 막혔다면 프로그램이 스스로 설정을 잠근 것이다.</summary>
+    public const string SelfProtected = "관리자 권한으로도 막혔습니다. 프로그램이 스스로 설정을 잠가 둡니다(끄기 불가, 제거만 가능).";
+
+    private string Denied(PlanAction a) =>
+        isAdmin || !a.NeedsAdmin ? SelfProtected : "권한이 없어 바꾸지 못했습니다(관리자 권한 필요).";
 
     private SnapshotEntry Prepare(PlanAction a)
     {

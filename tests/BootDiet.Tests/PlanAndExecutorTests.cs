@@ -80,7 +80,9 @@ public class PlanAndExecutorTests
         var result = Apply(plan, reg);
 
         Assert.Equal(EntryStatus.RolledBack, result.Entries.Single(e => e.Action.ComponentName == "V3 Tray").Status);
-        Assert.Equal(EntryStatus.Failed, result.Entries.Single(e => e.Action.ComponentName == "V3 Service").Status);
+        var svc = result.Entries.Single(e => e.Action.ComponentName == "V3 Service");
+        Assert.Equal(EntryStatus.Failed, svc.Status);
+        Assert.Equal(Executor.SelfProtected, svc.Message);                            // 관리자인데 막힘 = 자가 보호
         Assert.Null(reg.Read(HkcuRun, "V3 Tray"));                                     // 같은 제품은 원래대로
         Assert.Equal(EntryStatus.Changed, result.Entries.Single(e => e.Action.ComponentName == "KakaoTalk").Status); // 다른 제품은 계속
     }
