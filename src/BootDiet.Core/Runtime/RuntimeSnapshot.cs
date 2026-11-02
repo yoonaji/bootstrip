@@ -13,8 +13,11 @@ public sealed record PortSample(string Protocol, string Address, int Port, int P
 /// <summary>부팅 한 번의 기록(Diagnostics-Performance 이벤트 100).</summary>
 public sealed record BootSample(DateTimeOffset Time, int BootMs, int MainPathMs, int PostBootMs);
 
-/// <summary>부팅을 늦게 만든 앱 기록(이벤트 101).</summary>
-public sealed record SlowStartSample(DateTimeOffset Time, string Name, string? Path, int TotalMs, int DegradationMs);
+/// <summary>
+/// 부팅을 늦게 만든 기록(Diagnostics-Performance 이벤트 101 앱, 102 드라이버, 103 서비스).
+/// Path는 이벤트의 Name 값(앱은 실행 파일 이름, 드라이버는 .sys 이름, 서비스는 서비스 이름).
+/// </summary>
+public sealed record SlowStartSample(DateTimeOffset Time, string Name, string? Path, int TotalMs, int DegradationMs, string Kind = "앱");
 
 /// <summary>
 /// 3단계 측정(D2~D4)의 한 순간 기록. 판정과 별개로 저장해 두었다가 제품에 붙인다.

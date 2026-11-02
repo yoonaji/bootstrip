@@ -107,8 +107,8 @@ static void Print(int componentCount, IReadOnlyList<Product> products, bool show
             }
             Console.WriteLine($"  - {product.Name}{vendor}{state}");
             Console.WriteLine($"      {product.Verdict.Reason}");
-            if (MeasurementSummary.ProductLine(runtime.GetValueOrDefault(product.Id)) is { } running)
-                Console.WriteLine($"      {running}");
+            foreach (var line in MeasurementSummary.ProductLines(runtime.GetValueOrDefault(product.Id)))
+                Console.WriteLine($"      {line}");
             foreach (var c in product.Components)
             {
                 var off = c.Enabled ? "" : " (꺼짐)";
