@@ -24,6 +24,14 @@ public sealed record Rule
     /// 걸린 구성 요소를 하나로 묶지 않고 앱(제품명 또는 파일명)마다 따로 묶는다.
     /// </summary>
     public bool PerApp { get; init; }
+
+    /// <summary>
+    /// 비어 있지 않으면 이 종류의 구성 요소에만 적용한다(Match와 AND).
+    /// 예: 하드웨어 회사 이름으로 드라이버·서비스만 "유지"로 판정할 때.
+    /// </summary>
+    public IReadOnlyList<ComponentKind> Kinds { get; init; } = [];
+
+    public bool Applies(Component c) => (Kinds.Count == 0 || Kinds.Contains(c.Kind)) && Match.IsMatch(c);
 }
 
 public sealed record RuleMatch
