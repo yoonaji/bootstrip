@@ -27,7 +27,7 @@ return command switch
     "check" => CheckCommand(options),
     "agent" => AgentCommand(args.Length > 1 && !args[1].StartsWith("--") ? args[1].ToLowerInvariant() : "status", options),
     "help" or "-h" or "/?" => Help(),
-    "report" => NotYet(command),
+    "report" => ReportCommand(options),
     _ => Unknown(command),
 };
 }
@@ -215,6 +215,7 @@ static int ApplyCommand(Dictionary<string, string?> options)
         Console.WriteLine($"관리자 권한을 받지 못해서 관리자 항목 {adminCount}개는 건너뛰고 나머지만 진행합니다.");
     }
 
+    SaveBeforeScan();
     var folder = SnapshotFolder();
     var path = Path.Combine(folder, ActionFiles.SnapshotFileName(DateTimeOffset.Now));
     Action? wait = options.ContainsKey("no-wait") ? null : () =>
@@ -448,6 +449,104 @@ static string KindLabel(Component c) => (c.Kind, c.Scope) switch
     (ComponentKind.FirewallRule, _) => "방화벽 규칙",
     _ => c.Kind.ToString(),
 };
+
+// ───────── 8단계: report (정리 전·후 비교, PC를 바꾸지 않음) ─────────
+static int ReportCommand(Dictionary<string, string?> options)
+{
+    var rulesPath = options.GetValueOrDefault("rules") ?? Path.Combine(AppContext.BaseDirectory, "rules", "rules.json");
+    var beforePath = options.GetValueOrDefault("before") ?? LatestBeforeScan();
+    if (beforePath is null)
+    {
+        Console.Error.WriteLine("정리 전 기록이 없습니다. apply를 하면 바꾸기 직전 상태가 자동으로 저장됩니다.");
+        Console.Error.WriteLine("직접 비교하려면: bootdiet scan --save 전.json → (정리) → bootdiet report --before 전.json [--after 후.json]");
+        return 1;
+    }
+    if (!File.Exists(beforePath))
+    {
+        Console.Error.WriteLine($"파일이 없습니다: {beforePath}");
+        return 1;
+    }
+    var before = FiguresFromFile(beforePath, rulesPath);
+    if (before is null)
+    {
+        Console.Error.WriteLine($"{beforePath} 에 측정값(runtime)이 없습니다. scan --save 로 저장한 파일이어야 합니다.");
+        return 1;
+    }
+
+    ScanFigures? after;
+    if (options.GetValueOrDefault("after") is { } afterPath)
+    {
+        after = FiguresFromFile(afterPath, rulesPath);
+        if (after is null)
+        {
+            Console.Error.WriteLine($"{afterPath} 에 측정값(runtime)이 없습니다.");
+            return 1;
+        }
+    }
+    else if (OperatingSystem.IsWindows())
+    {
+        Console.WriteLine("지금 상태를 스캔하는 중…");
+        after = Figures(WindowsStartupScanner.Scan(), RuntimeProbe.Take(), rulesPath, Environment.GetFolderPath(Environment.SpecialFolder.Windows));
+    }
+    else
+    {
+        Console.Error.WriteLine("Windows가 아닌 곳에서는 --after 로 정리 뒤 스캔 파일을 지정해 주세요.");
+        return 1;
+    }
+
+    var report = new CleanupReport(before, after);
+    Console.WriteLine($"(정리 전: {beforePath})\n");
+    foreach (var line in report.ToLines())
+        Console.WriteLine(line);
+    if (options.GetValueOrDefault("md") is { } md)
+    {
+        File.WriteAllText(md, report.ToMarkdown(), new UTF8Encoding(true));
+        Console.WriteLine($"\n마크다운으로 저장했습니다: {md}");
+    }
+    return 0;
+}
+
+static ScanFigures? FiguresFromFile(string path, string rulesPath)
+{
+    var runtime = ComponentFile.LoadRuntime(path);
+    return runtime is null ? null : Figures(ComponentFile.Load(path), runtime, rulesPath, null);
+}
+
+/// <summary>scan과 같은 거르기·판정·측정 붙이기를 거쳐 숫자로 줄인다.</summary>
+static ScanFigures Figures(IReadOnlyList<Component> components, RuntimeSnapshot runtime, string rulesPath, string? windowsDir)
+{
+    components = WindowsOwnFilter.Apply(components, windowsDir);
+    var products = WindowsOwnFilter.DropFirewallOnlyProducts(new Classifier(RuleSet.Load(rulesPath)).ClassifyProducts(components));
+    return ScanFigures.Build(products, RuntimeAttribution.Attach(products, runtime, windowsDir), runtime);
+}
+
+/// <summary>apply가 바꾸기 직전 상태를 저장한다(report의 "정리 전"). 실패해도 apply는 계속한다.</summary>
+static void SaveBeforeScan()
+{
+    if (!OperatingSystem.IsWindows())
+        return;
+    try
+    {
+        var folder = Path.Combine(DataFolder(), "scans");
+        Directory.CreateDirectory(folder);
+        var path = Path.Combine(folder, $"before-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.json");
+        Console.WriteLine("바꾸기 전 상태를 기록하는 중(정리 전·후 비교용)…");
+        ComponentFile.Save(path, WindowsStartupScanner.Scan(), RuntimeProbe.Take());
+    }
+    catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+    {
+        Console.WriteLine($"  (정리 전 기록을 저장하지 못했습니다: {e.Message}. report는 scan --save 파일로 할 수 있습니다.)");
+    }
+}
+
+/// <summary>가장 최근의 정리 전 기록. 공용 폴더와 사용자 폴더를 모두 본다.</summary>
+static string? LatestBeforeScan() =>
+    new[] { Environment.SpecialFolder.CommonApplicationData, Environment.SpecialFolder.LocalApplicationData }
+        .Select(f => Path.Combine(Environment.GetFolderPath(f), "BootDiet", "scans"))
+        .Where(Directory.Exists)
+        .SelectMany(d => Directory.GetFiles(d, "before-*.json"))
+        .OrderByDescending(f => Path.GetFileName(f), StringComparer.Ordinal)
+        .FirstOrDefault();
 
 // ───────── 7단계: 뱅킹 모드 · check · agent ─────────
 static int BankCommand(string sub, Dictionary<string, string?> options)
@@ -830,8 +929,12 @@ static int Help()
         bootdiet agent install | remove    로그온할 때마다 check를 자동 실행하는 예약 작업 등록·삭제
         bootdiet agent status              등록 상태 보기
 
-        회사 PC에서는 scan과 plan만 쓰세요. apply, restore, test-item, bank, check, agent는 설정을 바꿉니다.
-        아직 없는 명령: report
+        bootdiet report                    정리 전·후 비교(PC를 바꾸지 않음). 정리 전 = 마지막 apply 직전 기록, 정리 뒤 = 지금
+          --before <파일>                  정리 전으로 쓸 scan --save 파일
+          --after <파일>                   정리 뒤로 쓸 scan --save 파일(없으면 지금 스캔)
+          --md <파일>                      결과를 마크다운 표로 저장(제안서용)
+
+        회사 PC에서는 scan, plan, report만 쓰세요. apply, restore, test-item, bank, check, agent는 설정을 바꿉니다.
         """);
     return 0;
 }
