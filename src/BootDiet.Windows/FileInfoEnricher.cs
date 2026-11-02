@@ -9,7 +9,7 @@ namespace BootDiet.Windows;
 [SupportedOSPlatform("windows")]
 public static class FileInfoEnricher
 {
-    public static StartupItem Enrich(StartupItem item)
+    public static Component Enrich(Component item)
     {
         var path = ResolvePath(item.ExecutablePath);
         if (path is null)

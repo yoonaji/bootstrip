@@ -1,8 +1,11 @@
 // 부트다이어트 판정 규칙 DB
 // - 위에 있는 규칙이 먼저 적용된다. 구체적인 규칙을 일반적인 규칙보다 위에 둘 것.
 // - match 안의 조건은 하나라도 맞으면 적용(OR), 대소문자 무시.
-// - category: WindowsBuiltIn | HardwareUtility | FinancialSecurity | Updater | GeneralApp
-// - action:   Keep | Disable | Remove | Review
+// - 같은 규칙에 걸린 구성 요소는 한 제품으로 묶인다. "메신저"처럼 여러 제품에 걸친 분류용 규칙은
+//   "perApp": true 로 표시하면 앱(제품명 또는 파일명)마다 따로 묶인다.
+// - category: WindowsBuiltIn | HardwareUtility | FinancialSecurity | Game | Updater | GeneralApp
+// - action:   Keep | Disable | BankingMode | Remove | Review
+// - 서비스·드라이버·인증서용 조건: serviceNames, driverNames(와일드카드), certNames(포함)
 {
   "rules": [
     // ───────── Windows 기본 ─────────
@@ -103,13 +106,13 @@
     { "id": "hw-asus", "product": "ASUS 유틸", "vendor": "ASUS",
       "category": "HardwareUtility", "action": "Keep", "reason": "제조사 하드웨어 제어 유틸입니다. 쓰지 않는 기능만 골라 끄세요.",
       "match": { "companyContains": ["ASUSTeK"], "pathContains": ["\\Program Files\\ASUS\\", "\\Program Files (x86)\\ASUS\\"] } },
-    { "id": "hw-audio", "product": "오디오 드라이버 유틸", "vendor": "",
+    { "id": "hw-audio", "perApp": true, "product": "오디오 드라이버 유틸", "vendor": "",
       "category": "HardwareUtility", "action": "Keep", "reason": "오디오 드라이버 보조 프로그램입니다. 끄면 소리·잭 감지가 이상해질 수 있습니다.",
       "match": { "fileNames": ["CAudioFilterAgent*.exe", "RtkAudUService*.exe", "RAVBg64.exe", "WavesSvc*.exe"], "companyContains": ["Realtek", "Conexant", "Waves Audio"] } },
-    { "id": "hw-input", "product": "입력장치 유틸", "vendor": "",
+    { "id": "hw-input", "perApp": true, "product": "입력장치 유틸", "vendor": "",
       "category": "HardwareUtility", "action": "Keep", "reason": "마우스·키보드·터치패드 설정에 필요합니다.",
       "match": { "fileNames": ["lghub*.exe"], "companyContains": ["Logitech", "Synaptics", "ELAN Microelectronic", "Razer"] } },
-    { "id": "hw-gpu", "product": "그래픽 드라이버 유틸", "vendor": "",
+    { "id": "hw-gpu", "perApp": true, "product": "그래픽 드라이버 유틸", "vendor": "",
       "category": "HardwareUtility", "action": "Keep", "reason": "그래픽 드라이버 구성 요소입니다.",
       "match": { "companyContains": ["NVIDIA", "Advanced Micro Devices", "Intel Corporation"] } },
 
@@ -128,13 +131,16 @@
     { "id": "app-teams-installer", "product": "Teams 설치 도우미", "vendor": "Microsoft",
       "category": "GeneralApp", "action": "Disable", "reason": "Teams 설치 확인용 항목입니다.",
       "match": { "nameContains": ["TeamsMachineInstaller"] } },
-    { "id": "app-messenger", "product": "메신저", "vendor": "",
+    { "id": "app-messenger", "perApp": true, "product": "메신저", "vendor": "",
       "category": "GeneralApp", "action": "Disable", "reason": "필요할 때 실행해도 됩니다. 메시지를 바로 받아야 하면 켜 두세요.",
       "match": { "fileNames": ["KakaoTalk.exe", "ms-teams.exe", "Discord.exe", "Slack.exe"] } },
-    { "id": "app-common", "product": "일반 앱", "vendor": "",
+    { "id": "app-common", "perApp": true, "product": "일반 앱", "vendor": "",
       "category": "GeneralApp", "action": "Disable", "reason": "필요할 때 실행해도 되는 앱입니다.",
-      "match": { "fileNames": ["Notion.exe", "Spotify.exe", "steam.exe", "QfinderPro.exe", "EpicGamesLauncher.exe"] } },
-    { "id": "app-anticheat", "product": "게임 보안(안티치트)", "vendor": "",
+      "match": { "fileNames": ["Notion.exe", "Spotify.exe", "QfinderPro.exe"] } },
+    { "id": "app-game-launcher", "perApp": true, "product": "게임 런처", "vendor": "",
+      "category": "Game", "action": "Disable", "reason": "게임할 때 실행하면 됩니다. 게임용 PC라면 켜 두어도 됩니다.",
+      "match": { "fileNames": ["steam.exe", "EpicGamesLauncher.exe", "Battle.net*.exe", "RiotClientServices.exe", "EADesktop.exe", "UbisoftConnect.exe"] } },
+    { "id": "app-anticheat", "perApp": true, "product": "게임 보안(안티치트)", "vendor": "",
       "category": "GeneralApp", "action": "Review", "reason": "끄면 해당 게임을 하기 전에 재부팅이 필요할 수 있습니다.",
       "match": { "fileNames": ["vgtray.exe"], "nameContains": ["Vanguard"] } }
   ]
