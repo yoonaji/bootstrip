@@ -146,6 +146,28 @@ public class PlanAndExecutorTests
     }
 
     [Fact]
+    public void ItemsCanBeChosenByTheNameShownInTaskManager()
+    {
+        // 노트북에서 --only BootDietTest 가 0개로 나온 버그: 제품 이름은 "부트다이어트 시험용 항목", 규칙 ID는 bootdiet-test
+        var test = new Product("rule:bootdiet-test", "부트다이어트 시험용 항목", null,
+            new Verdict(ItemCategory.GeneralApp, RecommendedAction.Disable, "시험", VerdictSource.Rule, "bootdiet-test"), [Run("BootDietTest")]);
+
+        var plan = Planner.Build([test], ["BootDietTest"]);
+        Assert.Equal("BootDietTest", Assert.Single(plan.Actions).ValueName);
+
+        // 실제 규칙 파일로도: cmd.exe(Microsoft)를 가리켜도 시험용 규칙이 먼저 잡는다
+        var raw = new Component
+        {
+            Name = "BootDietTest", Kind = ComponentKind.RunKey, Scope = Scope.User, Location = @"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+            Command = @"""C:\Windows\system32\cmd.exe"" /c exit", ExecutablePath = @"C:\Windows\system32\cmd.exe",
+            FileExists = true, Company = "Microsoft Corporation", Signer = "Microsoft Windows",
+        };
+        var products = WindowsOwnFilter.DropFirewallOnlyProducts(TestData.Classifier.ClassifyProducts(WindowsOwnFilter.Apply([raw], @"C:\Windows")));
+        var real = Planner.Build(products, ["BootDietTest"]);
+        Assert.Equal(@"HKCU\" + Planner.ApprovedBase + @"\Run", Assert.Single(real.Actions).Key);
+    }
+
+    [Fact]
     public void StartupFolderUsesTheShortcutFileNameAndMachineItemsNeedAdmin()
     {
         var folder = new Component { Name = "FTP Utility", Kind = ComponentKind.StartupFolder, Scope = Scope.Machine, ValueName = "FTP Utility.lnk", FileExists = true };

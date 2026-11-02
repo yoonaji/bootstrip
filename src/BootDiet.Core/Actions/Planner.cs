@@ -53,9 +53,11 @@ public static class Planner
     {
         if (selected is null)
             return p.Verdict.Action is RecommendedAction.Disable or RecommendedAction.BankingMode or RecommendedAction.Remove;
+        // 제품 이름, 규칙 ID, 구성 요소 이름(작업 관리자에 보이는 이름) 중 하나라도 맞으면 고른 것으로 본다.
         return selected.Any(s =>
             p.Name.Contains(s, StringComparison.OrdinalIgnoreCase)
-            || (p.Verdict.RuleId?.Equals(s, StringComparison.OrdinalIgnoreCase) ?? false));
+            || (p.Verdict.RuleId?.Equals(s, StringComparison.OrdinalIgnoreCase) ?? false)
+            || p.Components.Any(c => c.Name.Contains(s, StringComparison.OrdinalIgnoreCase)));
     }
 
     private static string ProtectedReason(ItemCategory category) => category switch
