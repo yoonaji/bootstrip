@@ -1,0 +1,168 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BootDiet.App.ViewModels"
+             x:Class="BootDiet.App.Views.ProductsView"
+             x:DataType="vm:ProductListViewModel">
+  <!-- S2 제품 목록 + S3 상세 패널. GUI 화면 계획 4장의 배치. -->
+  <Grid RowDefinitions="Auto,*,Auto">
+    <!-- 위: 검색·종류 -->
+    <Grid Margin="24,20,24,12" ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+      <TextBlock Text="제품" Classes="h1" VerticalAlignment="Center" Margin="0,0,20,0" />
+      <TextBox Grid.Column="2" Width="260" Watermark="이름·회사·파일 경로로 찾기" Text="{Binding SearchText}" Margin="0,0,8,0" />
+      <ComboBox Grid.Column="3" Width="190" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" Margin="0,0,8,0" />
+      <Button Grid.Column="4" Content="추천대로 되돌리기" Command="{Binding ResetToRecommendedCommand}" />
+    </Grid>
+
+    <Grid Grid.Row="1" ColumnDefinitions="*,4,400" Margin="16,0,0,0">
+      <!-- 목록 -->
+      <ScrollViewer>
+        <ItemsControl ItemsSource="{Binding Groups}" Margin="0,0,8,16">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ProductGroupViewModel">
+              <Expander IsExpanded="{Binding IsExpanded}" IsVisible="{Binding IsVisible}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,8">
+                <Expander.Header>
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="{Binding Header}" FontWeight="SemiBold" FontSize="14.5" />
+                    <TextBlock Text="{Binding Description}" Classes="muted small" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Expander.Header>
+                <ItemsControl ItemsSource="{Binding Items}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ProductItemViewModel">
+                      <Button Classes="row" Classes.selected="{Binding IsSelected}"
+                              Command="{Binding $parent[UserControl].((vm:ProductListViewModel)DataContext).SelectCommand}"
+                              CommandParameter="{Binding}">
+                        <Grid ColumnDefinitions="*,Auto,130">
+                          <StackPanel Spacing="2" Margin="0,0,12,0">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                              <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                              <TextBlock Text="{Binding CategoryLabel}" Classes="muted small" VerticalAlignment="Center" />
+                              <TextBlock Text="이미 꺼짐" IsVisible="{Binding IsCurrentlyOff}" Classes="muted small" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding Reason}" Classes="muted small" TextTrimming="CharacterEllipsis" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
+                            <Border Classes="badge" IsVisible="{Binding IsRunning}">
+                              <TextBlock Text="{Binding MemoryText}" />
+                            </Border>
+                            <Border Classes="badge" Classes.warn="{Binding HasExposedPorts}" IsVisible="{Binding HasPorts}">
+                              <TextBlock Text="{Binding PortBadge}" />
+                            </Border>
+                            <Border Classes="badge warn" IsVisible="{Binding HasLongCertificate}">
+                              <TextBlock Text="{Binding CertificateBadge}" />
+                            </Border>
+                            <Border Classes="badge warn" IsVisible="{Binding CannotDisable}">
+                              <TextBlock Text="끄기 불가" />
+                            </Border>
+                          </StackPanel>
+                          <ComboBox Grid.Column="2" ItemsSource="{Binding Options}" SelectedItem="{Binding Choice}"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+                        </Grid>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </Expander>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+      <GridSplitter Grid.Column="1" Background="{DynamicResource CardBorder}" Width="1" />
+
+      <!-- 상세 -->
+      <Border Grid.Column="2" Background="{DynamicResource CardBackground}">
+        <ScrollViewer>
+          <ContentControl Content="{Binding Selected}" Margin="20,16">
+            <ContentControl.ContentTemplate>
+              <DataTemplate x:DataType="vm:ProductItemViewModel">
+                <StackPanel Spacing="14">
+                  <StackPanel Spacing="3">
+                    <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock Classes="muted small" TextWrapping="Wrap">
+                      <Run Text="{Binding VendorText}" /><Run Text=" · " /><Run Text="{Binding CategoryLabel}" /><Run Text=" · " /><Run Text="{Binding StateText}" />
+                    </TextBlock>
+                  </StackPanel>
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="판정" Classes="h2" />
+                    <StackPanel Orientation="Horizontal">
+                      <Border Classes="badge ok"><TextBlock Text="{Binding RecommendationLabel}" /></Border>
+                      <TextBlock Text="{Binding SourceLabel}" Classes="muted small" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding Reason}" TextWrapping="Wrap" />
+                    <Border Classes="badge warn" IsVisible="{Binding CannotDisable}" Padding="8,6">
+                      <TextBlock Text="스스로 다시 켜지는 서비스라 끌 수 없습니다. 제거만 가능합니다." TextWrapping="Wrap" />
+                    </Border>
+                  </StackPanel>
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="처리 수준" Classes="h2" />
+                    <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Choice}" HorizontalAlignment="Stretch" />
+                    <TextBlock Text="{Binding Recommended.Label, StringFormat='추천: {0}'}" Classes="muted small" IsVisible="{Binding DiffersFromRecommendation}" />
+                  </StackPanel>
+
+                  <StackPanel Spacing="4" IsVisible="{Binding HasRuntime}">
+                    <TextBlock Text="측정" Classes="h2" />
+                    <ItemsControl ItemsSource="{Binding RuntimeLines}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" TextWrapping="Wrap" /></DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <ItemsControl ItemsSource="{Binding Ports}" Margin="0,4,0,0">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" Classes="muted small" /></DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <ItemsControl ItemsSource="{Binding Processes}" Margin="0,4,0,0">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" Classes="muted small" /></DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="{Binding ComponentCount, StringFormat='구성 요소 {0}개'}" Classes="h2" />
+                    <TextBlock Text="{Binding ComponentSummary}" Classes="muted small" TextWrapping="Wrap" />
+                    <ItemsControl ItemsSource="{Binding ComponentGroups}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ComponentGroupViewModel">
+                          <Expander Header="{Binding Header}" HorizontalAlignment="Stretch" Margin="0,0,0,6" IsExpanded="True">
+                            <ItemsControl ItemsSource="{Binding Items}">
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ComponentRowViewModel">
+                                  <StackPanel Margin="0,0,0,8" Spacing="1">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding State}" Classes="small" />
+                                    <TextBlock Text="{Binding Detail}" IsVisible="{Binding HasDetail}" Classes="muted small" TextWrapping="Wrap" />
+                                  </StackPanel>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                          </Expander>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </StackPanel>
+              </DataTemplate>
+            </ContentControl.ContentTemplate>
+          </ContentControl>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+
+    <!-- 아래 고정 막대 -->
+    <Border Grid.Row="2" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Padding="24,12">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="{Binding ChangeSummary}" FontWeight="SemiBold" />
+          <TextBlock Text="아직 아무것도 바꾸지 않았습니다. 미리보기에서 확인한 뒤에만 적용됩니다." Classes="muted small" />
+        </StackPanel>
+        <Button Grid.Column="1" Content="미리보기 →" Classes="accent" IsEnabled="False"
+                ToolTip.Tip="미리보기·적용 화면은 다음 단계(G2)에서 만듭니다" />
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

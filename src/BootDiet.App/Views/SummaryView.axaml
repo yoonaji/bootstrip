@@ -1,0 +1,82 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BootDiet.App.ViewModels"
+             x:Class="BootDiet.App.Views.SummaryView"
+             x:DataType="vm:SummaryViewModel">
+  <!-- S1 요약. 전·후 비교와 프리셋은 G3에서 붙인다. -->
+  <ScrollViewer>
+    <StackPanel Margin="32,28" Spacing="20">
+      <StackPanel Spacing="4">
+        <TextBlock Text="요약" Classes="h1" />
+        <TextBlock Text="{Binding SourceLabel}" Classes="muted" />
+      </StackPanel>
+
+      <UniformGrid Columns="4">
+        <Border Classes="card" Margin="0,0,12,0">
+          <StackPanel Spacing="4">
+            <TextBlock Text="금융·인증 모듈 실행 중" Classes="muted small" />
+            <TextBlock Text="{Binding FinancialRunning}" Classes="big" />
+            <TextBlock Text="{Binding FinancialRunningSub}" Classes="muted small" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+        <Border Classes="card" Margin="0,0,12,0">
+          <StackPanel Spacing="4">
+            <TextBlock Text="상주 메모리" Classes="muted small" />
+            <TextBlock Text="{Binding Memory}" Classes="big" />
+            <TextBlock Text="{Binding MemorySub}" Classes="muted small" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+        <Border Classes="card" Margin="0,0,12,0">
+          <StackPanel Spacing="4">
+            <TextBlock Text="열린 포트" Classes="muted small" />
+            <TextBlock Text="{Binding Ports}" Classes="big" />
+            <TextBlock Text="{Binding PortsSub}" Classes="muted small" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+        <Border Classes="card">
+          <StackPanel Spacing="4">
+            <TextBlock Text="부팅 시간" Classes="muted small" />
+            <TextBlock Text="{Binding Boot}" Classes="big" />
+            <TextBlock Text="{Binding BootSub}" Classes="muted small" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+      </UniformGrid>
+
+      <Border Classes="card">
+        <StackPanel Spacing="14">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="판정 결과" Classes="h2" />
+            <TextBlock Text="{Binding ProductCount, StringFormat='제품 {0}개'}" Classes="muted" VerticalAlignment="Bottom" />
+            <TextBlock Text="{Binding ComponentCount, StringFormat='({0})'}" Classes="muted" VerticalAlignment="Bottom" />
+          </StackPanel>
+          <ItemsControl ItemsSource="{Binding Verdicts}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><UniformGrid Columns="5" /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:VerdictCount">
+                <StackPanel>
+                  <TextBlock Text="{Binding CountText}" FontSize="24" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding Title}" Classes="muted small" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <Button Content="제품 목록에서 고르기" Classes="accent" Command="{Binding Main.GoToCommand}" CommandParameter="products" />
+            <ComboBox PlaceholderText="프리셋: 게임용 · 사무용 · 최소 (G3)" IsEnabled="False" MinWidth="260" />
+          </StackPanel>
+          <TextBlock Text="{Binding ChangeSummary, StringFormat='지금은 판정의 추천대로 골라져 있습니다: {0}'}" Classes="muted small" />
+        </StackPanel>
+      </Border>
+
+      <ItemsControl ItemsSource="{Binding Notes}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="x:String">
+            <TextBlock Text="{Binding}" Classes="muted small" TextWrapping="Wrap" Margin="0,2" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

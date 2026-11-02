@@ -1,0 +1,16 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BootDiet.App.ViewModels"
+             x:Class="BootDiet.App.Views.PlaceholderView"
+             x:DataType="vm:PlaceholderViewModel">
+  <StackPanel Margin="32" Spacing="10" MaxWidth="640" HorizontalAlignment="Left">
+    <TextBlock Text="{Binding Title}" Classes="h1" />
+    <TextBlock Text="{Binding Purpose}" TextWrapping="Wrap" />
+    <Border Classes="card" Margin="0,8,0,0">
+      <StackPanel Spacing="6">
+        <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Classes="muted" />
+        <TextBlock Text="{Binding Extra}" IsVisible="{Binding Extra, Converter={x:Static ObjectConverters.IsNotNull}}" FontWeight="SemiBold" />
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

@@ -1,0 +1,58 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:BootDiet.App.ViewModels"
+        xmlns:v="using:BootDiet.App.Views"
+        x:Class="BootDiet.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="부트다이어트"
+        Width="1280" Height="800" MinWidth="980" MinHeight="600"
+        WindowStartupLocation="CenterScreen">
+  <Window.DataTemplates>
+    <DataTemplate DataType="vm:ScanViewModel"><v:ScanView /></DataTemplate>
+    <DataTemplate DataType="vm:SummaryViewModel"><v:SummaryView /></DataTemplate>
+    <DataTemplate DataType="vm:ProductListViewModel"><v:ProductsView /></DataTemplate>
+    <DataTemplate DataType="vm:PlaceholderViewModel"><v:PlaceholderView /></DataTemplate>
+  </Window.DataTemplates>
+
+  <Grid ColumnDefinitions="210,*">
+    <!-- 왼쪽 메뉴 -->
+    <Border Background="{DynamicResource NavBackground}">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Margin="22,22,16,18">
+          <TextBlock Text="부트다이어트" FontSize="19" FontWeight="Bold" />
+          <TextBlock Text="시작 앱·보안 모듈 정리" Classes="muted small" Margin="0,2,0,0" />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Margin="16" Spacing="8">
+          <Border Classes="card" Padding="12">
+            <StackPanel Spacing="6">
+              <TextBlock Text="뱅킹 모드" FontWeight="SemiBold" />
+              <TextBlock Text="은행 갈 때만 금융 모듈을 켜는 기능은 다음 단계(G4)에서 만듭니다." Classes="muted small" TextWrapping="Wrap" />
+              <Button Content="켜기" IsEnabled="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            </StackPanel>
+          </Border>
+          <TextBlock Text="{Binding SourceLabel}" Classes="muted small" TextWrapping="Wrap" />
+          <Button Content="다시 스캔" Command="{Binding StartScanCommand}" IsEnabled="{Binding !Scan.IsRunning}"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+        </StackPanel>
+
+        <ListBox Classes="nav" ItemsSource="{Binding Nav}" SelectedItem="{Binding SelectedNav}"
+                 IsEnabled="{Binding HasResult}" Background="Transparent">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:NavItem">
+              <StackPanel>
+                <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Hint}" Classes="muted small" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+
+    <!-- 화면 -->
+    <Border Grid.Column="1" Background="{DynamicResource PageBackground}">
+      <ContentControl Content="{Binding Current}" />
+    </Border>
+  </Grid>
+</Window>
