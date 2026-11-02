@@ -45,14 +45,19 @@ static int Scan(Dictionary<string, string?> options)
     components = WindowsOwnFilter.Apply(components, windowsDir);
     var hidden = collected - components.Count;
 
-    var products = new Classifier(RuleSet.Load(rulesPath)).ClassifyProducts(components);
+    var allProducts = new Classifier(RuleSet.Load(rulesPath)).ClassifyProducts(components);
+    var products = WindowsOwnFilter.DropFirewallOnlyProducts(allProducts);
+    var firewallOnly = allProducts.Count - products.Count;
+    components = products.SelectMany(p => p.Components).ToList();
 
     if (options.TryGetValue("json", out var jsonPath))
         ComponentFile.SaveProducts(jsonPath!, products);
 
     Print(components.Count, products);
     if (hidden > 0)
-        Console.WriteLine($"(Windows 자체 서비스·드라이버 {hidden}개는 정리 대상이 아니라서 뺐습니다.)");
+        Console.WriteLine($"(Windows 자체 구성 요소 {hidden}개는 정리 대상이 아니라서 뺐습니다.)");
+    if (firewallOnly > 0)
+        Console.WriteLine($"(시작 항목 없이 방화벽 규칙만 있는 앱 {firewallOnly}개는 따로 보여 주지 않습니다.)");
     return 0;
 }
 
@@ -85,7 +90,8 @@ static void Print(int componentCount, IReadOnlyList<Product> products)
             {
                 var off = c.Enabled ? "" : " (꺼짐)";
                 var trigger = c.Trigger is null ? "" : $" · {c.Trigger}";
-                Console.WriteLine($"      · {c.Name} [{KindLabel(c)}{trigger}]{off}");
+                var detail = c.Detail is null ? "" : $" — {c.Detail}";
+                Console.WriteLine($"      · {c.Name} [{KindLabel(c)}{trigger}]{off}{detail}");
             }
         }
         Console.WriteLine();

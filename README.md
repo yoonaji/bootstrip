@@ -64,6 +64,6 @@ dotnet publish src/BootDiet.Cli -c Release -r win-x64 --self-contained -p:Publis
 
 ## 다음 단계
 
-- 2단계 마무리: 인증서·방화벽 수집기, 스토어 앱 StartupTask, 서명 유효성 검증(WinVerifyTrust). 서비스·드라이버·예약 작업 수집기는 완료(Microsoft 것은 자동으로 뺌)
+- 2단계 마무리: 스토어 앱 StartupTask, 서명 유효성 검증(WinVerifyTrust). 시작 앱·서비스·드라이버·예약 작업·루트 인증서·방화벽 수집기는 완료(Windows 자체 항목은 판정 전에 뺌)
 - 3단계: 성능·보안 수치 읽기 (StartupInfo XML, 부팅 이벤트 100/101, 메모리, 열린 포트)
 - 4단계: 백업 → 끄기 → 되돌리기

@@ -11,6 +11,15 @@ public static class WindowsOwnFilter
 {
     public const string DefaultWindowsDir = @"C:\Windows";
 
+    /// <summary>
+    /// 방화벽 규칙만 있는 제품은 시작 정리와 관계가 없으니 뺀다(게임·개발 도구 등).
+    /// 금융·회사 보안처럼 규칙으로 판정된 제품은 방화벽 규칙만 있어도 남긴다.
+    /// </summary>
+    public static IReadOnlyList<Product> DropFirewallOnlyProducts(IEnumerable<Product> products) =>
+        products.Where(p => p.Components.Any(c => c.Kind != ComponentKind.FirewallRule)
+                         || p.Category is ItemCategory.FinancialSecurity or ItemCategory.CorporateSecurity)
+                .ToList();
+
     public static IReadOnlyList<Component> Apply(IEnumerable<Component> components, string? windowsDir = null)
     {
         var dir = string.IsNullOrEmpty(windowsDir) ? DefaultWindowsDir : windowsDir;
@@ -19,7 +28,11 @@ public static class WindowsOwnFilter
 
     public static bool IsWindowsOwn(Component c, string windowsDir)
     {
-        if (c.Kind is not (ComponentKind.Service or ComponentKind.Driver))
+        // Windows가 원래 넣어 두는 Microsoft 루트 인증서
+        if (c.Kind == ComponentKind.RootCertificate)
+            return c.Command?.Contains("Microsoft", StringComparison.OrdinalIgnoreCase) == true;
+
+        if (c.Kind is not (ComponentKind.Service or ComponentKind.Driver or ComponentKind.FirewallRule))
             return false;
 
         // Microsoft가 만든 것
@@ -38,6 +51,10 @@ public static class WindowsOwnFilter
 
         // Windows 폴더 안에 있는데 파일이 없는 것(설치 안 된 선택 기능)
         if (inWindows && c.FileExists == false)
+            return true;
+
+        // Windows 프로그램에 대한 방화벽 규칙
+        if (c.Kind == ComponentKind.FirewallRule && inWindows)
             return true;
 
         // Windows 폴더 안에 있고 회사명도 서명도 없는 것(카탈로그 서명된 Windows 구성 요소: OpenSSH 등)
