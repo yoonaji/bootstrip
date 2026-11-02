@@ -14,6 +14,8 @@ const int SelfRepairSeconds = 8; // AhnLab 서비스는 2차 실험에서 5초 �
 var command = args.Length > 0 && !args[0].StartsWith("--") ? args[0].ToLowerInvariant() : "scan";
 var options = ParseArgs(args);
 
+try
+{
 return command switch
 {
     "scan" => Scan(options),
@@ -28,6 +30,13 @@ return command switch
     "report" => NotYet(command),
     _ => Unknown(command),
 };
+}
+catch (Exception e) when (options.ContainsKey("quiet"))
+{
+    // 예약 작업으로 돌 때는 창이 없어 오류가 보이지 않는다. 로그에 남겨야 원인을 알 수 있다.
+    Log([$"오류({string.Join(' ', args)}): {e}"]);
+    return 99;
+}
 
 static int Scan(Dictionary<string, string?> options)
 {
@@ -538,7 +547,11 @@ static int BankOff(Dictionary<string, string?> options)
             return code.Value;
         Console.WriteLine("관리자 권한을 받지 못해 사용자 항목만 끕니다.");
     }
-    var output = EndBank(DateTimeOffset.Now, "bank off");
+    if (quiet)
+        Log(["bank off 시작(예약 작업)"]);
+    // 예약 작업이 스스로를 지우면 Windows가 실행 중인 그 작업을 끝내 버릴 수 있다. 그래서 예약 작업으로 돌 때는
+    // 타이머를 지우지 않는다(한 번만 도는 작업이라 다시 돌지 않고, 다음 bank on이 덮어쓴다).
+    var output = EndBank(DateTimeOffset.Now, "bank off", deleteTimer: !quiet);
     WriteLast(output);
     if (quiet)
         Log(output);
@@ -546,7 +559,7 @@ static int BankOff(Dictionary<string, string?> options)
 }
 
 /// <summary>뱅킹 모드를 끝낸다: 다시 끄기 → 서비스 멈춤 → 남은 프로세스 종료 → 타이머 삭제. bank off와 check가 함께 쓴다.</summary>
-static List<string> EndBank(DateTimeOffset now, string why)
+static List<string> EndBank(DateTimeOffset now, string why, bool deleteTimer = true)
 {
     var policy = ActionFiles.LoadPolicy(PolicyPath(), now);
     var ids = policy.Bank?.ProductIds.ToHashSet() ?? policy.BankProducts.Select(p => p.ProductId).ToHashSet();
@@ -570,12 +583,16 @@ static List<string> EndBank(DateTimeOffset now, string why)
     foreach (var p in left)
         p.Dispose();
 
-    try { AgentTasks.Delete(AgentTasks.BankOffTask); }
-    catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
-
     var gone = lines.Where(l => l.Outcome == KeepOutcome.Gone).Select(l => l.Item).ToHashSet();
     policy = policy.Without(gone.Contains, now) with { Bank = null };
     ActionFiles.SavePolicy(PolicyPath(), policy);
+
+    // 정책을 먼저 저장하고 타이머는 마지막에 지운다.
+    if (deleteTimer)
+    {
+        try { AgentTasks.Delete(AgentTasks.BankOffTask); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
     return output;
 }
 
@@ -757,7 +774,15 @@ static void Log(IEnumerable<string> lines)
     try
     {
         var path = Path.Combine(DataFolder(), "check.log");
-        File.AppendAllLines(path, lines.Select(l => $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss} {l}"));
+        // BOM을 붙여야 Windows PowerShell 5의 Get-Content가 한글을 깨뜨리지 않는다. 예전 버전이 BOM 없이 쓴 파일은 앞에 붙여 준다.
+        var bom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+        if (File.Exists(path))
+        {
+            var bytes = File.ReadAllBytes(path);
+            if (bytes.Length > 0 && !bytes.AsSpan().StartsWith(bom.Preamble))
+                File.WriteAllBytes(path, [.. bom.Preamble, .. bytes]);
+        }
+        File.AppendAllLines(path, lines.Select(l => $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss} {l}"), bom);
     }
     catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
 }
