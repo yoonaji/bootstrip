@@ -1,7 +1,7 @@
 # 부트다이어트(가칭)
 
 Windows 시작 앱과 국내 금융 보안 모듈을 자동으로 찾아 **제품 단위로** 묶고 **유지 / 사용 안 함 / 뱅킹 모드 / 제거 / 확인 필요**로 판정하는 프로그램입니다.
-지금은 구현 계획의 0~2단계(읽기 전용 수집 7종 + 규칙 판정 + 제품 묶기)와 3단계 측정 일부(실행 중 프로세스·메모리, 열린 포트, 부팅 기록), 4단계 끄기·되돌리기(plan / apply / restore)까지 들어 있습니다. scan과 plan은 PC를 바꾸지 않고, apply·restore·test-item만 설정을 바꿉니다.
+지금은 구현 계획의 0~2단계(읽기 전용 수집 7종 + 규칙 판정 + 제품 묶기)와 3단계 측정 일부(실행 중 프로세스·메모리, 열린 포트, 부팅 기록), 4~5단계 끄기·되돌리기(plan / apply / restore), 7단계 뱅킹 모드와 자동 재정리(bank / check / agent)까지 들어 있습니다. scan과 plan은 PC를 바꾸지 않습니다.
 
 요구사항과 설계의 기준은 [프로젝트 문서](https://claude.ai/artifact/YZaEuk5QrcCcvVSu5JVpon)의 "요구사항 명세"·"설계" 탭입니다.
 
@@ -66,6 +66,21 @@ dotnet publish src/BootDiet.Cli -c Release -r win-x64 --self-contained -p:Publis
 - 백업 위치: `%ProgramData%\BootDiet\snapshots\` (쓸 수 없으면 `%LOCALAPPDATA%\BootDiet\snapshots\`)
 - 회사 PC에서는 scan과 plan만 쓰세요.
 
+### 뱅킹 모드와 자동 재정리 (7단계)
+
+```powershell
+.\bootdiet.exe bank on                     # 꺼 둔 금융 보안 프로그램을 잠시 켜기(기본 30분, --minutes 60)
+.\bootdiet.exe bank off                    # 일찍 끝내기: 다시 끄고 서비스 멈춤, 떠 있는 프로세스 종료
+.\bootdiet.exe bank status                 # 뱅킹 모드 상태와 꺼 둔 제품 목록
+.\bootdiet.exe check                       # 꺼 둔 것이 다시 켜졌으면 다시 끄기 + 새로 깔린 금융 모듈 알려 주기
+.\bootdiet.exe agent install               # 로그온할 때마다 check를 자동 실행(예약 작업 \BootDiet\Check)
+```
+
+- apply가 실제로 끈 항목은 `%ProgramData%\BootDiet\policy.json`(사용자 정책)에 남습니다. 금융 보안 제품은 "뱅킹 모드", 나머지는 "늘 꺼 둠"으로 기록됩니다. restore로 되돌린 항목은 정책에서 빠져서 check가 다시 끄지 않습니다.
+- bank on은 관리자 창에서 서비스를 켜고, 끝나는 시각에 bank off가 돌도록 예약 작업(\BootDiet\BankOff)을 걸어 둡니다. 시작 앱은 원래 창(일반 권한)에서 띄웁니다.
+- 뱅킹 모드 중에 PC를 껐다 켜면, 다음 로그온의 check가 뱅킹 모드를 끝냅니다.
+- 상주 프로그램은 없습니다. check와 bank off는 할 일을 하고 바로 끝납니다. 기록은 `%ProgramData%\BootDiet\check.log`.
+
 서명하지 않은 실행 파일이라 처음 실행할 때 SmartScreen 경고가 뜰 수 있습니다. "추가 정보 > 실행"을 누르면 됩니다.
 
 ## 규칙 추가하기
@@ -85,6 +100,6 @@ dotnet publish src/BootDiet.Cli -c Release -r win-x64 --self-contained -p:Publis
 ## 다음 단계
 
 - 2단계 남은 것: 서명 유효성 검증(WinVerifyTrust). 수집기 7종(시작 앱·서비스·드라이버·예약 작업·루트 인증서·방화벽·스토어 앱)은 완료
-- 4단계 남은 것: 집 PC에서 시험용 항목 → 실제 앱 순서로 끄기·되돌리기 확인
-- 5단계 남은 것: 집 PC에서 보안 모듈을 끄고 재부팅해도 다시 뜨지 않는지 확인
+- 4·5단계: 집 PC에서 확인 완료(2026-11-02). AhnLab Safe Transaction·nProtect는 관리자 권한으로도 끌 수 없음(자가 보호) → 제거 대상
+- 7단계 남은 것: 집 PC에서 bank on → 은행 사이트 이용 → bank off 확인, 알림 창(트레이)은 화면(GUI) 쪽에서
 - 3단계 남은 것: 앱별 부팅 시 CPU·디스크(WDI StartupInfo XML), 끄기 전후 비교. 실행 중 프로세스·메모리, 열린 포트(외부 접속 가능 여부), 부팅 이벤트 100/101은 완료(부팅 기록은 관리자 권한이 필요할 수 있음)

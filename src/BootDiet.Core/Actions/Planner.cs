@@ -73,7 +73,8 @@ public static class Planner
     public static (PlanAction? Action, string? Reason) ForComponent(Product product, Component c)
     {
         PlanAction Make(PlanOperation op, string key, string value) =>
-            new(product.Id, product.Name, c.Name, c.Kind, op, key, value, key.StartsWith("HKLM", StringComparison.OrdinalIgnoreCase));
+            new(product.Id, product.Name, c.Name, c.Kind, op, key, value, key.StartsWith("HKLM", StringComparison.OrdinalIgnoreCase),
+                product.Verdict.Category, c.ExecutablePath, c.Command);
 
         switch (c.Kind)
         {

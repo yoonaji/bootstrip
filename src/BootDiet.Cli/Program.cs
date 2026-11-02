@@ -21,8 +21,11 @@ return command switch
     "apply" => ApplyCommand(options),
     "restore" => RestoreCommand(options),
     "test-item" => TestItemCommand(args.Length > 1 ? args[1] : null),
+    "bank" => BankCommand(args.Length > 1 && !args[1].StartsWith("--") ? args[1].ToLowerInvariant() : "status", options),
+    "check" => CheckCommand(options),
+    "agent" => AgentCommand(args.Length > 1 && !args[1].StartsWith("--") ? args[1].ToLowerInvariant() : "status", options),
     "help" or "-h" or "/?" => Help(),
-    "bank" or "check" or "report" => NotYet(command),
+    "report" => NotYet(command),
     _ => Unknown(command),
 };
 
@@ -214,9 +217,16 @@ static int ApplyCommand(Dictionary<string, string?> options)
         .Apply(plan, s => ActionFiles.SaveSnapshot(path, s), $"apply {Path.GetFileName(planPath)}", wait);
 
     PrintEntries(result);
+    var policy = ActionFiles.LoadPolicy(PolicyPath(), DateTimeOffset.Now).Record(result, DateTimeOffset.Now);
+    ActionFiles.SavePolicy(PolicyPath(), policy);
     Console.WriteLine($"\n백업: {path}");
     Console.WriteLine("되돌리기: bootdiet restore (가장 최근 백업) 또는 bootdiet restore --snapshot <파일> [--product <이름>]");
     Console.WriteLine("시작 앱은 작업 관리자 > 시작 앱 탭에서 바로 확인할 수 있습니다. 서비스는 이미 실행 중이면 다음 부팅부터 뜨지 않습니다.");
+    var bankCount = policy.BankProducts.Count();
+    if (bankCount > 0)
+        Console.WriteLine($"금융 보안 제품 {bankCount}개는 뱅킹 모드로 기록했습니다. 은행 이용 전: bootdiet bank on, 끝나면: bootdiet bank off");
+    if (AgentInfo(AgentTasks.CheckTask) is null)
+        Console.WriteLine("다시 켜지는 것을 로그온 때마다 자동으로 다시 끄려면: bootdiet agent install");
     Pause(options);
     return result.Entries.Any(e => e.Status == EntryStatus.Failed) ? 3 : 0;
 }
@@ -253,6 +263,8 @@ static int RestoreCommand(Dictionary<string, string?> options)
     var result = new Executor(new WindowsRegistry(), isAdmin, tasks: new WindowsTasks())
         .Restore(snapshot, s => ActionFiles.SaveSnapshot(path, s), options.GetValueOrDefault("product"));
     PrintEntries(result, onlyTouched: true);
+    // 되돌린 항목은 사용자가 다시 켠 것이니 정책에서 빼서 check가 다시 끄지 않게 한다.
+    ActionFiles.SavePolicy(PolicyPath(), ActionFiles.LoadPolicy(PolicyPath(), DateTimeOffset.Now).Forget(result, DateTimeOffset.Now));
     Pause(options);
     return result.Entries.Any(e => e.Status == EntryStatus.Changed && e.Message is not null) ? 3 : 0;
 }
@@ -428,6 +440,331 @@ static string KindLabel(Component c) => (c.Kind, c.Scope) switch
     _ => c.Kind.ToString(),
 };
 
+// ───────── 7단계: 뱅킹 모드 · check · agent ─────────
+static int BankCommand(string sub, Dictionary<string, string?> options)
+{
+    if (!OperatingSystem.IsWindows())
+    {
+        Console.Error.WriteLine("bank는 Windows에서만 실행할 수 있습니다.");
+        return 1;
+    }
+    return sub switch
+    {
+        "on" => BankOn(options),
+        "off" => BankOff(options),
+        "status" => BankStatus(),
+        _ => Usage("bootdiet bank on [--minutes 30] [--only 이름] | off | status"),
+    };
+}
+
+static int BankOn(Dictionary<string, string?> options)
+{
+    var now = DateTimeOffset.Now;
+    var policy = ActionFiles.LoadPolicy(PolicyPath(), now);
+    var only = options.GetValueOrDefault("only")?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    var products = policy.BankProducts
+        .Where(p => only is null || only.Any(o => p.ProductName.Contains(o, StringComparison.OrdinalIgnoreCase)))
+        .ToList();
+    if (products.Count == 0)
+    {
+        Console.WriteLine("뱅킹 모드로 둔 제품이 없습니다. 금융 보안 제품을 apply로 끄면 자동으로 뱅킹 모드가 됩니다.");
+        return 0;
+    }
+    var minutes = int.TryParse(options.GetValueOrDefault("minutes"), out var m) && m > 0 ? m : 30;
+    var items = products.SelectMany(p => p.Items).ToList();
+
+    // 서비스 켜기와 타이머 등록에는 관리자 권한이 필요하다. 관리자 창은 레지스트리·서비스만 하고,
+    // 시작 앱은 이 창(일반 권한)으로 돌아와서 띄운다. 금융 모듈을 관리자 권한으로 띄우지 않기 위해서다.
+    if (!WindowsRegistry.IsAdmin() && !options.ContainsKey("no-elevate"))
+    {
+        var code = Elevation.Relaunch(["bank", "on", "--minutes", minutes.ToString(), "--no-launch", .. PassThrough(options, "only")]);
+        PrintLast();
+        if (code is null)
+        {
+            Console.WriteLine("관리자 권한을 받지 못해 뱅킹 모드를 켜지 못했습니다(서비스를 켜려면 관리자 권한이 필요).");
+            return 1;
+        }
+        LaunchStartupApps(items);
+        return code.Value;
+    }
+
+    var output = new List<string>();
+    var keeper = new Keeper(new WindowsRegistry(), WindowsRegistry.IsAdmin(), tasks: new WindowsTasks());
+    var lines = keeper.TurnOn(items);
+    foreach (var item in items)
+        if (BankTools.ServiceName(item.Action) is { } service && lines.Any(l => l.Item == item && l.Outcome is KeepOutcome.TurnedOn or KeepOutcome.Unchanged))
+            if (BankTools.StartService(service) is { } error)
+                output.Add("  ! " + error);
+
+    var until = now.AddMinutes(minutes);
+    policy = policy with { UpdatedAt = now, Bank = new BankSession(now, until, products.Select(p => p.ProductId).ToList()) };
+    ActionFiles.SavePolicy(PolicyPath(), policy);
+    try
+    {
+        AgentTasks.ScheduleBankOff(ExePath(), until);
+    }
+    catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+    {
+        output.Add($"  ! 끝나는 시각 예약 실패({e.Message}). 은행 일을 마치면 bootdiet bank off 를 직접 실행해 주세요.");
+    }
+
+    output.Insert(0, $"뱅킹 모드 켜짐: {string.Join(", ", products.Select(p => p.ProductName))}");
+    output.Insert(1, $"{until:HH:mm}에 자동으로 다시 끕니다({minutes}분). 일찍 끝나면 bootdiet bank off");
+    output.AddRange(KeepLines(lines));
+    WriteLast(output);
+    if (!options.ContainsKey("no-launch"))
+        LaunchStartupApps(items);
+    return lines.Any(l => l.Outcome == KeepOutcome.Failed) ? 3 : 0;
+}
+
+static void LaunchStartupApps(IEnumerable<PolicyItem> items)
+{
+    foreach (var item in items.Where(i => i.Action.Kind is ComponentKind.RunKey or ComponentKind.StartupFolder))
+        if (BankTools.Launch(item.Action) is { } error)
+            Console.WriteLine("  ! " + error);
+}
+
+static int BankOff(Dictionary<string, string?> options)
+{
+    var quiet = options.ContainsKey("quiet");
+    if (!WindowsRegistry.IsAdmin() && !quiet && !options.ContainsKey("no-elevate"))
+    {
+        var code = Elevation.Relaunch(["bank", "off"]);
+        PrintLast();
+        if (code is not null)
+            return code.Value;
+        Console.WriteLine("관리자 권한을 받지 못해 사용자 항목만 끕니다.");
+    }
+    var output = EndBank(DateTimeOffset.Now, "bank off");
+    WriteLast(output);
+    if (quiet)
+        Log(output);
+    return 0;
+}
+
+/// <summary>뱅킹 모드를 끝낸다: 다시 끄기 → 서비스 멈춤 → 남은 프로세스 종료 → 타이머 삭제. bank off와 check가 함께 쓴다.</summary>
+static List<string> EndBank(DateTimeOffset now, string why)
+{
+    var policy = ActionFiles.LoadPolicy(PolicyPath(), now);
+    var ids = policy.Bank?.ProductIds.ToHashSet() ?? policy.BankProducts.Select(p => p.ProductId).ToHashSet();
+    var products = policy.Products.Where(p => ids.Contains(p.ProductId)).ToList();
+    var items = products.SelectMany(p => p.Items).ToList();
+    var output = new List<string> { $"뱅킹 모드 끝({why}): {string.Join(", ", products.Select(p => p.ProductName))}" };
+
+    var keeper = new Keeper(new WindowsRegistry(), WindowsRegistry.IsAdmin(), tasks: new WindowsTasks());
+    var lines = keeper.TurnOff(items);
+    foreach (var item in items)
+        if (BankTools.ServiceName(item.Action) is { } service && BankTools.StopService(service) is { } error)
+            output.Add("  ! " + error);
+
+    var paths = items.Select(i => i.Action.ExecutablePath ?? CommandLineParser.Split(i.Action.Command)?.Executable).OfType<string>().ToList();
+    var failed = BankTools.Kill(BankTools.Running(paths));
+    var left = BankTools.Running(paths);
+    output.AddRange(KeepLines(lines));
+    output.Add(left.Count == 0
+        ? "  ✔ 금융 모듈 프로세스가 남아 있지 않습니다."
+        : $"  ! 아직 떠 있는 프로세스 {left.Count}개: {string.Join(", ", left.Select(p => p.ProcessName).Distinct())}{(failed.Count > 0 ? " (종료 거부)" : "")}");
+    foreach (var p in left)
+        p.Dispose();
+
+    try { AgentTasks.Delete(AgentTasks.BankOffTask); }
+    catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+
+    var gone = lines.Where(l => l.Outcome == KeepOutcome.Gone).Select(l => l.Item).ToHashSet();
+    policy = policy.Without(gone.Contains, now) with { Bank = null };
+    ActionFiles.SavePolicy(PolicyPath(), policy);
+    return output;
+}
+
+static int BankStatus()
+{
+    var now = DateTimeOffset.Now;
+    var policy = ActionFiles.LoadPolicy(PolicyPath(), now);
+    if (policy.Bank is { } s)
+        Console.WriteLine(now < s.Until
+            ? $"뱅킹 모드 켜짐 · {s.Until:HH:mm}까지(남은 시간 {(int)Math.Ceiling((s.Until - now).TotalMinutes)}분)"
+            : $"뱅킹 모드가 {s.Until:HH:mm}에 끝났어야 하는데 아직 정리되지 않았습니다. bootdiet bank off 를 실행해 주세요.");
+    else
+        Console.WriteLine("뱅킹 모드 꺼짐");
+
+    if (policy.Products.Count == 0)
+    {
+        Console.WriteLine("꺼 둔 제품 기록이 없습니다(apply로 끄면 기록됩니다).");
+        return 0;
+    }
+    Console.WriteLine($"\n꺼 둔 제품 {policy.Products.Count}개 ({PolicyPath()})");
+    foreach (var p in policy.Products.OrderBy(p => p.Mode).ThenBy(p => p.ProductName))
+        Console.WriteLine($"  - {p.ProductName} [{(p.Mode == PolicyMode.Bank ? "뱅킹 모드" : "늘 꺼 둠")}] 항목 {p.Items.Count}개");
+    Console.WriteLine($"\n로그온 때 자동 확인: {(AgentInfo(AgentTasks.CheckTask) is { } d ? "등록됨 (" + d + ")" : "등록 안 됨 (bootdiet agent install)")}");
+    return 0;
+}
+
+static int CheckCommand(Dictionary<string, string?> options)
+{
+    if (!OperatingSystem.IsWindows())
+    {
+        Console.Error.WriteLine("check는 Windows에서만 실행할 수 있습니다.");
+        return 1;
+    }
+    var quiet = options.ContainsKey("quiet");
+    var now = DateTimeOffset.Now;
+    var policy = ActionFiles.LoadPolicy(PolicyPath(), now);
+    var isAdmin = WindowsRegistry.IsAdmin();
+    if (!isAdmin && !quiet && !options.ContainsKey("no-elevate") && policy.Products.Any(p => p.Items.Any(i => i.Action.NeedsAdmin)))
+    {
+        var code = Elevation.Relaunch(["check", "--pause", .. PassThrough(options, "no-scan")]);
+        if (code is not null)
+            return code.Value;
+        Console.WriteLine("관리자 권한을 받지 못해 사용자 항목만 확인합니다.");
+    }
+
+    var output = new List<string>();
+    var bootTime = now - TimeSpan.FromMilliseconds(Environment.TickCount64);
+    if (policy.BankExpired(now, bootTime))
+    {
+        output.AddRange(EndBank(now, policy.Bank!.Until <= now ? "시간이 지남" : "PC를 다시 켬"));
+        policy = ActionFiles.LoadPolicy(PolicyPath(), now);
+    }
+
+    var active = policy.Bank?.ProductIds.ToHashSet();
+    var lines = new Keeper(new WindowsRegistry(), isAdmin, tasks: new WindowsTasks()).Enforce(policy, active);
+    var gone = lines.Where(l => l.Outcome == KeepOutcome.Gone).Select(l => l.Item).ToHashSet();
+    policy = policy.Without(gone.Contains, now);
+    var acted = lines.Where(l => l.Outcome != KeepOutcome.Unchanged).ToList();
+    if (acted.Count > 0)
+    {
+        output.Add($"다시 켜진 것 확인: {acted.Count(l => l.Outcome == KeepOutcome.ReDisabled)}개 다시 끔");
+        output.AddRange(KeepLines(acted));
+    }
+
+    // 새로 깔린 금융 보안 프로그램(FR-30). 처음 실행 때는 지금 있는 것을 기준으로 삼기만 한다.
+    if (!options.ContainsKey("no-scan") && LoadProducts(options) is { } products)
+    {
+        var financial = products.Where(p => p.Category == ItemCategory.FinancialSecurity).ToList();
+        var known = policy.KnownFinancial.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var managed = policy.Products.Select(p => p.ProductId).ToHashSet();
+        if (known.Count > 0)
+            foreach (var p in financial.Where(p => !known.Contains(p.Id) && !managed.Contains(p.Id)))
+                output.Add($"새 금융 보안 프로그램: {p.Name} — bootdiet plan --only \"{p.Name}\" 으로 확인하세요");
+        policy = policy with { KnownFinancial = known.Union(financial.Select(p => p.Id)).Order().ToList() };
+    }
+
+    ActionFiles.SavePolicy(PolicyPath(), policy with { UpdatedAt = now });
+    if (output.Count == 0)
+        output.Add($"이상 없음: 꺼 둔 제품 {policy.Products.Count}개가 그대로 꺼져 있습니다{(active is { Count: > 0 } ? " (뱅킹 모드 중인 제품 제외)" : "")}.");
+    foreach (var line in output)
+        Console.WriteLine(line);
+    Log(output);
+    Pause(options);
+    return lines.Any(l => l.Outcome == KeepOutcome.Failed) ? 3 : 0;
+}
+
+static int AgentCommand(string sub, Dictionary<string, string?> options)
+{
+    if (!OperatingSystem.IsWindows())
+    {
+        Console.Error.WriteLine("agent는 Windows에서만 실행할 수 있습니다.");
+        return 1;
+    }
+    if (sub == "status")
+    {
+        Console.WriteLine($"로그온 때 자동 확인(check): {AgentInfo(AgentTasks.CheckTask) ?? "등록 안 됨"}");
+        Console.WriteLine($"뱅킹 모드 끝내기 예약(bank off): {AgentInfo(AgentTasks.BankOffTask) ?? "없음"}");
+        Console.WriteLine($"기록: {Path.Combine(DataFolder(), "check.log")}");
+        return 0;
+    }
+    if (sub is not ("install" or "remove"))
+        return Usage("bootdiet agent install | remove | status");
+    if (!WindowsRegistry.IsAdmin() && !options.ContainsKey("no-elevate"))
+        return Elevation.Relaunch(["agent", sub, "--pause"]) ?? 1;
+
+    try
+    {
+        if (sub == "install")
+        {
+            AgentTasks.RegisterLogonCheck(ExePath());
+            Console.WriteLine($"등록했습니다: 로그온할 때마다(30초 뒤) {ExePath()} check --quiet");
+            Console.WriteLine("실행 파일을 다른 폴더로 옮기면 agent install 을 다시 해 주세요.");
+        }
+        else
+        {
+            AgentTasks.Delete(AgentTasks.CheckTask);
+            AgentTasks.Delete(AgentTasks.BankOffTask);
+            Console.WriteLine("예약 작업을 지웠습니다. 꺼 둔 설정은 그대로입니다(되돌리려면 bootdiet restore).");
+        }
+    }
+    catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+    {
+        Console.Error.WriteLine(e.Message);
+        Pause(options);
+        return 1;
+    }
+    Pause(options);
+    return 0;
+}
+
+static IEnumerable<string> KeepLines(IEnumerable<KeepLine> lines) =>
+    lines.Where(l => l.Outcome != KeepOutcome.Unchanged).Select(l =>
+    {
+        var mark = l.Outcome switch
+        {
+            KeepOutcome.ReDisabled => "✔ 다시 끔",
+            KeepOutcome.TurnedOn => "✔ 켬",
+            KeepOutcome.TurnedOff => "✔ 끔",
+            KeepOutcome.Gone => "· 없어짐(지워진 듯)",
+            KeepOutcome.NeedsAdmin => "· 관리자 필요",
+            KeepOutcome.Failed => "✖ 실패",
+            _ => l.Outcome.ToString(),
+        };
+        return $"  {mark}: {l.Item.Action.ProductName} · {l.Item.Action.ComponentName}{(l.Message is null ? "" : " — " + l.Message)}";
+    });
+
+/// <summary>예약 작업 설명. 없거나 작업 스케줄러를 못 읽으면 null.</summary>
+static string? AgentInfo(string name)
+{
+    try { return AgentTasks.Describe(name); }
+    catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
+}
+
+static string DataFolder() => Path.GetDirectoryName(SnapshotFolder())!;
+
+static string PolicyPath() => Path.Combine(DataFolder(), "policy.json");
+
+static string ExePath() => Environment.ProcessPath ?? throw new InvalidOperationException("실행 파일 경로를 알 수 없습니다.");
+
+/// <summary>관리자 창의 결과를 원래 창에서도 보여 주려고 마지막 결과를 파일로 남긴다.</summary>
+static void WriteLast(List<string> output)
+{
+    foreach (var line in output)
+        Console.WriteLine(line);
+    try { File.WriteAllLines(Path.Combine(DataFolder(), "bank-last.txt"), output); }
+    catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+}
+
+static void PrintLast()
+{
+    var path = Path.Combine(DataFolder(), "bank-last.txt");
+    if (File.Exists(path) && File.GetLastWriteTime(path) > DateTime.Now.AddMinutes(-2))
+        foreach (var line in File.ReadAllLines(path))
+            Console.WriteLine(line);
+}
+
+static void Log(IEnumerable<string> lines)
+{
+    try
+    {
+        var path = Path.Combine(DataFolder(), "check.log");
+        File.AppendAllLines(path, lines.Select(l => $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss} {l}"));
+    }
+    catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+}
+
+static int Usage(string text)
+{
+    Console.Error.WriteLine("사용법: " + text);
+    return 1;
+}
+
 static int Help()
 {
     Console.WriteLine("""
@@ -455,8 +792,18 @@ static int Help()
           --product <이름>                 그 제품만
         bootdiet test-item add | remove    시험용 시작 항목(BootDietTest) 만들기·지우기
 
-        회사 PC에서는 scan과 plan만 쓰세요. apply, restore, test-item은 설정을 바꿉니다.
-        아직 없는 명령: bank, check, report
+        bootdiet bank on                   뱅킹 모드: 꺼 둔 금융 보안 프로그램을 잠시 켜기(기본 30분 뒤 자동으로 끔)
+          --minutes <분>                   켜 둘 시간
+          --only <이름,이름>               그 제품만
+        bootdiet bank off                  뱅킹 모드 끝내기: 다시 끄고 떠 있는 프로세스 정리
+        bootdiet bank status               뱅킹 모드 상태와 정책 보기
+        bootdiet check                     꺼 둔 것이 다시 켜졌으면 다시 끄기, 새로 깔린 금융 모듈 알려 주기
+          --no-scan                        새 금융 모듈 찾기(전체 스캔)를 건너뛰기
+        bootdiet agent install | remove    로그온할 때마다 check를 자동 실행하는 예약 작업 등록·삭제
+        bootdiet agent status              등록 상태 보기
+
+        회사 PC에서는 scan과 plan만 쓰세요. apply, restore, test-item, bank, check, agent는 설정을 바꿉니다.
+        아직 없는 명령: report
         """);
     return 0;
 }
