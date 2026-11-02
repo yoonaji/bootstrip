@@ -50,6 +50,12 @@ public sealed record Component
     /// <summary>종류별 추가 정보. 인증서는 만료일·지문, 방화벽 규칙은 허용 범위·포트.</summary>
     public string? Detail { get; init; }
 
+    /// <summary>
+    /// 켜고 끌 때 쓰는 정확한 이름이 Name과 다를 때만 채운다.
+    /// 시작 폴더는 바로가기 파일 이름(확장자 포함)이 StartupApproved 값 이름이다.
+    /// </summary>
+    public string? ValueName { get; init; }
+
     /// <summary>인증서의 유효기간 끝. 인증서가 아니면 null.</summary>
     public DateTimeOffset? ValidUntil { get; init; }
 

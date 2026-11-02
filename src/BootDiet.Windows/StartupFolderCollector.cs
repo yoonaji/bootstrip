@@ -39,6 +39,7 @@ public sealed class StartupFolderCollector : ICollector
                     Kind = ComponentKind.StartupFolder,
                     Scope = scope,
                     Location = dir,
+                    ValueName = fileName,
                     Command = string.IsNullOrEmpty(arguments) ? target : $"\"{target}\" {arguments}",
                     ExecutablePath = target,
                     Enabled = StartupApprovedReader.IsEnabled(hive, "StartupFolder", fileName),
