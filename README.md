@@ -101,5 +101,5 @@ dotnet publish src/BootDiet.Cli -c Release -r win-x64 --self-contained -p:Publis
 
 - 2단계 남은 것: 서명 유효성 검증(WinVerifyTrust). 수집기 7종(시작 앱·서비스·드라이버·예약 작업·루트 인증서·방화벽·스토어 앱)은 완료
 - 4·5단계: 집 PC에서 확인 완료(2026-11-02). AhnLab Safe Transaction·nProtect는 관리자 권한으로도 끌 수 없음(자가 보호) → 제거 대상
-- 7단계 남은 것: 집 PC에서 bank on → 은행 사이트 이용 → bank off 확인, 알림 창(트레이)은 화면(GUI) 쪽에서
+- 7단계: 집 PC에서 bank on/off, 끝 시각 자동 bank off, 만료 정리 확인(2026-11-03). 예약 작업은 창 없이(S4U) 돕니다. 남은 것: 실제 은행 사이트 이용 확인, 알림 창(트레이)은 화면(GUI) 쪽에서
 - 3단계 남은 것: 앱별 부팅 시 CPU·디스크(WDI StartupInfo XML), 끄기 전후 비교. 실행 중 프로세스·메모리, 열린 포트(외부 접속 가능 여부), 부팅 이벤트 100/101은 완료(부팅 기록은 관리자 권한이 필요할 수 있음)
