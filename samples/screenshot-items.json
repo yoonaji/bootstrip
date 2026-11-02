@@ -1,0 +1,168 @@
+{
+  "_comment": "작업 관리자 스크린샷(2026-10-30)에서 옮긴 시작 앱 27개. 실제 경로를 몰라 파일 이름만 정확함.",
+  "items": [
+    {
+      "name": "Veraport Handler",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\veraport-handler.exe",
+      "company": "WIZVERA"
+    },
+    {
+      "name": "LGControlCenterRTManager",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\LGControlCenterRTManager.exe",
+      "company": null
+    },
+    {
+      "name": "CsrHCRPServer.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\CsrHCRPServer.exe",
+      "company": null
+    },
+    {
+      "name": "HotkeyManager.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\HotkeyManager.exe",
+      "company": null
+    },
+    {
+      "name": "CrossEXService.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\CrossEXService.exe",
+      "company": null
+    },
+    {
+      "name": "Csr Bluetooth TrayApplication",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\BTTray.exe",
+      "company": "Cambridge Silicon Radio"
+    },
+    {
+      "name": "CSRHarmonySkypePlugin.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\CSRHarmonySkypePlugin.exe",
+      "company": null
+    },
+    {
+      "name": "HarmonyUserStartup.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\HarmonyUserStartup.exe",
+      "company": null
+    },
+    {
+      "name": "vksts.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\vksts.exe",
+      "company": null
+    },
+    {
+      "name": "CsrSyncMLServer.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\CsrSyncMLServer.exe",
+      "company": null
+    },
+    {
+      "name": "CsrAudioguiCtrl.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\CsrAudioguiCtrl.exe",
+      "company": null
+    },
+    {
+      "name": "SecurityHealthSystray.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\SecurityHealthSystray.exe",
+      "company": null
+    },
+    {
+      "name": "Copilot",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\Copilot.exe",
+      "company": "Microsoft Corporation"
+    },
+    {
+      "name": "SKCertService.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\SKCertService.exe",
+      "company": null
+    },
+    {
+      "name": "pennyroyal.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\pennyroyal.exe",
+      "company": null
+    },
+    {
+      "name": "I3GProc.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\I3GProc.exe",
+      "company": null
+    },
+    {
+      "name": "delfino.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\delfino.exe",
+      "company": null
+    },
+    {
+      "name": "AnySign4PC.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\AnySign4PC.exe",
+      "company": null
+    },
+    {
+      "name": "QfinderPro.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\QfinderPro.exe",
+      "company": null
+    },
+    {
+      "name": "Java Update Scheduler",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\jusched.exe",
+      "company": "Oracle Corporation"
+    },
+    {
+      "name": "REPORTXSvc.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\REPORTXSvc.exe",
+      "company": null
+    },
+    {
+      "name": "kpmcnt.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\kpmcnt.exe",
+      "company": null
+    },
+    {
+      "name": "nxTS.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\nxTS.exe",
+      "company": null
+    },
+    {
+      "name": "CertShare4PC.exe",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\CertShare4PC.exe",
+      "company": null
+    },
+    {
+      "name": "Warp",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\Warp.exe",
+      "company": null
+    },
+    {
+      "name": "CAudioFilterAgent64",
+      "location": "RunMachine32",
+      "executablePath": "C:\\Program Files (x86)\\Unknown\\CAudioFilterAgent64.exe",
+      "company": null
+    },
+    {
+      "name": "Program",
+      "location": "RunUser",
+      "command": "C:\\Program",
+      "executablePath": "C:\\Program",
+      "fileExists": false
+    }
+  ]
+}
