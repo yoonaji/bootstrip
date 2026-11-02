@@ -51,7 +51,7 @@ public sealed record RuleMatch
     /// <summary>드라이버 이름(와일드카드 가능). 드라이버 구성 요소에만 적용.</summary>
     public IReadOnlyList<string> DriverNames { get; init; } = [];
 
-    /// <summary>루트 인증서 이름(주체)에 포함된 문자열. 인증서 구성 요소에만 적용.</summary>
+    /// <summary>루트 인증서 이름이나 주체(O, OU, E 등 전체)에 포함된 문자열. 인증서 구성 요소에만 적용.</summary>
     public IReadOnlyList<string> CertNames { get; init; } = [];
 
     public bool IsMatch(Component c)
@@ -66,7 +66,7 @@ public sealed record RuleMatch
             || SignerContains.Any(s => Contains(c.Signer, s))
             || (c.Kind == ComponentKind.Service && ServiceNames.Any(p => WildcardMatch(c.Name, p)))
             || (c.Kind == ComponentKind.Driver && DriverNames.Any(p => WildcardMatch(c.Name, p)))
-            || (c.Kind == ComponentKind.RootCertificate && CertNames.Any(s => Contains(c.Name, s)));
+            || (c.Kind == ComponentKind.RootCertificate && CertNames.Any(s => Contains(c.Name, s) || Contains(c.Command, s)));
     }
 
     private static bool Contains(string? text, string value) =>

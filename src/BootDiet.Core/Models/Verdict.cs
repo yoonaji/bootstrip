@@ -10,6 +10,7 @@ public enum ItemCategory
     Updater,
     GeneralApp,
     Broken,
+    Suspicious,        // 개발·테스트용 등 출처가 의심스러운 루트 인증서
     Unknown,
 }
 

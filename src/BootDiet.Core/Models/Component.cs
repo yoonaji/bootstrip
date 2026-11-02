@@ -50,6 +50,9 @@ public sealed record Component
     /// <summary>종류별 추가 정보. 인증서는 만료일·지문, 방화벽 규칙은 허용 범위·포트.</summary>
     public string? Detail { get; init; }
 
+    /// <summary>인증서의 유효기간 끝. 인증서가 아니면 null.</summary>
+    public DateTimeOffset? ValidUntil { get; init; }
+
     /// <summary>실행 파일이 실제로 존재하는지. null이면 확인하지 않음.</summary>
     public bool? FileExists { get; init; }
 
