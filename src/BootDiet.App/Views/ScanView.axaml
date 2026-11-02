@@ -1,0 +1,19 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BootDiet.App.ViewModels"
+             x:Class="BootDiet.App.Views.ScanView"
+             x:DataType="vm:ScanViewModel">
+  <!-- S0 스캔 진행. 읽기만 하고 PC는 바꾸지 않는다. -->
+  <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="460" Spacing="12">
+    <TextBlock Text="이 PC의 자동 실행 항목을 살펴보는 중" Classes="h1" />
+    <TextBlock Text="시작 앱, 서비스, 예약 작업, 드라이버, 루트 인증서, 방화벽 규칙을 읽기만 합니다. 아무것도 바꾸지 않습니다."
+               Classes="muted" TextWrapping="Wrap" />
+    <ProgressBar Value="{Binding Percent}" Minimum="0" Maximum="100" Height="8" Margin="0,8,0,0"
+                 IsIndeterminate="{Binding !IsRunning}" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNull}}" />
+    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+    <TextBlock Text="{Binding FoundText}" Classes="muted small" />
+    <Border Classes="badge warn" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" Padding="10,8">
+      <TextBlock Text="{Binding Error}" TextWrapping="Wrap" FontSize="13" />
+    </Border>
+  </StackPanel>
+</UserControl>

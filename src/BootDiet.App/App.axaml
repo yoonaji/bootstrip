@@ -1,0 +1,10 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="BootDiet.App.App"
+             RequestedThemeVariant="Default">
+  <!-- 다크 모드는 Windows 설정을 따른다(GUI 화면 계획 6장). -->
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="/Views/Styles.axaml" />
+  </Application.Styles>
+</Application>

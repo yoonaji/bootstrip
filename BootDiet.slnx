@@ -1,10 +1,12 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/BootDiet.App/BootDiet.App.csproj" />
     <Project Path="src/BootDiet.Cli/BootDiet.Cli.csproj" />
     <Project Path="src/BootDiet.Core/BootDiet.Core.csproj" />
     <Project Path="src/BootDiet.Windows/BootDiet.Windows.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/BootDiet.App.Tests/BootDiet.App.Tests.csproj" />
     <Project Path="tests/BootDiet.Tests/BootDiet.Tests.csproj" />
   </Folder>
 </Solution>
