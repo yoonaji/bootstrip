@@ -19,12 +19,28 @@ public class ProductGroupingTests
     };
 
     [Fact]
-    public void ComponentsOfOneProductAreGroupedTogether()
+    public void SameVendorDifferentProductsStaySeparate()
     {
-        var anySign = ScreenshotProducts().Single(p => p.Verdict.RuleId == "kr-anysign");
+        // 노트북 실측: AnySign(XecureWeb)과 인증서 복사(XecureCertShare)는 같은 회사의 다른 제품이다.
+        var products = ScreenshotProducts();
 
+        var anySign = products.Single(p => p.Verdict.RuleId == "kr-anysign");
         Assert.Equal("AnySign", anySign.Name);
-        Assert.Equal(["AnySign4PC.exe", "CertShare4PC.exe"], anySign.Components.Select(c => c.Name).Order());
+        Assert.Equal(["AnySign4PC.exe"], anySign.Components.Select(c => c.Name));
+        Assert.Single(products, p => p.Verdict.RuleId == "kr-certshare");
+    }
+
+    [Fact]
+    public void LaptopSampleIsFullyClassified()
+    {
+        var components = ComponentFile.Load(TestData.PathOf("samples", "laptop-items.json"));
+        var products = TestData.Classifier.ClassifyProducts(components);
+
+        Assert.Equal(33, components.Count);
+        Assert.Equal(28, products.Count); // CSR 블루투스 4개, LG 유틸 2개, Edge 2개가 각각 하나로 묶임
+        Assert.DoesNotContain(products, p => p.Verdict.Action == RecommendedAction.Review);
+        Assert.Equal(11, products.Count(p => p.Category == ItemCategory.FinancialSecurity));
+        Assert.Equal(3, products.Count(p => p.Category == ItemCategory.Broken));
     }
 
     [Fact]
@@ -47,7 +63,7 @@ public class ProductGroupingTests
         var products = TestData.Classifier.ClassifyProducts(components);
 
         Assert.Equal(components.Count, products.Sum(p => p.Components.Count));
-        Assert.Equal(22, products.Count); // 27개 중 AnySign 2개, LG 유틸 2개, CSR 블루투스 4개가 각각 하나로 묶임
+        Assert.Equal(23, products.Count); // 27개 중 LG 유틸 2개, CSR 블루투스 4개가 각각 하나로 묶임
     }
 
     [Fact]
