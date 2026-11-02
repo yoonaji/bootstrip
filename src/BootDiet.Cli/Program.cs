@@ -1,5 +1,6 @@
 using System.Text;
 using BootDiet.Core;
+using BootDiet.Core.Actions;
 using BootDiet.Core.Models;
 using BootDiet.Core.Rules;
 using BootDiet.Core.Runtime;
@@ -14,8 +15,12 @@ var options = ParseArgs(args);
 return command switch
 {
     "scan" => Scan(options),
+    "plan" => PlanCommand(options),
+    "apply" => ApplyCommand(options),
+    "restore" => RestoreCommand(options),
+    "test-item" => TestItemCommand(args.Length > 1 ? args[1] : null),
     "help" or "-h" or "/?" => Help(),
-    "plan" or "apply" or "restore" or "bank" or "check" or "report" => NotYet(command),
+    "bank" or "check" or "report" => NotYet(command),
     _ => Unknown(command),
 };
 
@@ -74,6 +79,215 @@ static int Scan(Dictionary<string, string?> options)
     if (firewallOnly > 0)
         Console.WriteLine($"(시작 항목 없이 방화벽 규칙만 있는 앱 {firewallOnly}개는 따로 보여 주지 않습니다.)");
     return 0;
+}
+
+/// <summary>scan과 plan이 함께 쓰는 수집 → 거르기 → 판정. 실패하면 null.</summary>
+static IReadOnlyList<Product>? LoadProducts(Dictionary<string, string?> options)
+{
+    var rulesPath = options.GetValueOrDefault("rules") ?? Path.Combine(AppContext.BaseDirectory, "rules", "rules.json");
+    IReadOnlyList<Component> components;
+    if (options.TryGetValue("input", out var input))
+        components = ComponentFile.Load(input!);
+    else if (OperatingSystem.IsWindows())
+        components = WindowsStartupScanner.Scan();
+    else
+    {
+        Console.Error.WriteLine("Windows가 아닌 곳에서는 --input 으로 구성 요소 파일을 지정해 주세요.");
+        return null;
+    }
+    var windowsDir = OperatingSystem.IsWindows() ? Environment.GetFolderPath(Environment.SpecialFolder.Windows) : null;
+    components = WindowsOwnFilter.Apply(components, windowsDir);
+    return WindowsOwnFilter.DropFirewallOnlyProducts(new Classifier(RuleSet.Load(rulesPath)).ClassifyProducts(components));
+}
+
+// ───────── plan: 미리보기 (PC를 바꾸지 않음) ─────────
+static int PlanCommand(Dictionary<string, string?> options)
+{
+    var products = LoadProducts(options);
+    if (products is null)
+        return 1;
+    var only = options.GetValueOrDefault("only")?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    var plan = Planner.Build(products, only, machine: Environment.MachineName);
+
+    Console.WriteLine(only is null
+        ? "처리 계획 (추천이 사용 안 함·뱅킹 모드·제거인 제품을 \"사용 안 함\"으로) — 미리보기라 아무것도 바꾸지 않았습니다\n"
+        : $"처리 계획 ({string.Join(", ", only)}) — 미리보기라 아무것도 바꾸지 않았습니다\n");
+
+    foreach (var group in plan.Actions.GroupBy(a => a.ProductName))
+    {
+        Console.WriteLine($"  - {group.Key}");
+        foreach (var a in group)
+        {
+            var admin = a.NeedsAdmin ? " [관리자]" : "";
+            Console.WriteLine($"      · {a.ComponentName}: {a.Description}{admin}");
+            Console.WriteLine($"          {a.Key} → {a.ValueName}");
+        }
+    }
+
+    var admins = plan.Actions.Count(a => a.NeedsAdmin);
+    var tasks = plan.Actions.Count(a => a.Operation == PlanOperation.DisableScheduledTask);
+    Console.WriteLine();
+    Console.WriteLine($"바꿀 항목 {plan.Actions.Count}개 (제품 {plan.Actions.Select(a => a.ProductId).Distinct().Count()}개) · 그중 관리자 권한 필요 {admins}개");
+    if (tasks > 0)
+        Console.WriteLine($"(예약 작업 {tasks}개는 계획에만 있고, 실제 끄기는 5단계에서 지원합니다.)");
+
+    var skipGroups = plan.Skipped.GroupBy(s => s.Reason).OrderByDescending(g => g.Count()).ToList();
+    if (skipGroups.Count > 0)
+    {
+        Console.WriteLine("\n건너뛰는 항목:");
+        foreach (var g in skipGroups)
+            Console.WriteLine($"  · {g.Key}: {g.Count()}개 ({string.Join(", ", g.Select(s => s.ProductName).Distinct().Take(4))}{(g.Select(s => s.ProductName).Distinct().Count() > 4 ? " …" : "")})");
+    }
+
+    if (options.TryGetValue("save", out var save))
+    {
+        ActionFiles.SavePlan(save!, plan);
+        Console.WriteLine($"\n계획을 {save} 에 저장했습니다. 실행: bootdiet apply --plan {save}");
+    }
+    return 0;
+}
+
+// ───────── apply: 계획 실행 (PC를 바꿈) ─────────
+static int ApplyCommand(Dictionary<string, string?> options)
+{
+    if (!OperatingSystem.IsWindows())
+    {
+        Console.Error.WriteLine("apply는 Windows에서만 실행할 수 있습니다.");
+        return 1;
+    }
+    if (options.GetValueOrDefault("plan") is not { } planPath)
+    {
+        Console.Error.WriteLine("계획 파일을 지정해 주세요. 예: bootdiet plan --save plan.json → bootdiet apply --plan plan.json");
+        return 1;
+    }
+    var plan = ActionFiles.LoadPlan(planPath);
+    if (plan.Machine is not null && !plan.Machine.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase))
+    {
+        Console.Error.WriteLine($"이 계획은 다른 PC({plan.Machine})에서 만든 것입니다. 이 PC에서 plan을 다시 만들어 주세요.");
+        return 1;
+    }
+
+    var isAdmin = WindowsRegistry.IsAdmin();
+    Console.WriteLine($"계획: 바꿀 항목 {plan.Actions.Count}개, 제품 {plan.Actions.Select(a => a.ProductId).Distinct().Count()}개");
+    if (!isAdmin && plan.Actions.Any(a => a.NeedsAdmin))
+        Console.WriteLine($"관리자 권한이 아니라서 관리자 항목 {plan.Actions.Count(a => a.NeedsAdmin)}개는 건너뜁니다.");
+    if (!options.ContainsKey("yes"))
+    {
+        Console.Write("진행할까요? 바꾸기 전 값은 백업 파일에 남고 bootdiet restore 로 되돌릴 수 있습니다. (y/N) ");
+        if (!string.Equals(Console.ReadLine()?.Trim(), "y", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine("취소했습니다. 아무것도 바꾸지 않았습니다.");
+            return 0;
+        }
+    }
+
+    var folder = SnapshotFolder();
+    var path = Path.Combine(folder, ActionFiles.SnapshotFileName(DateTimeOffset.Now));
+    var result = new Executor(new WindowsRegistry(), isAdmin).Apply(plan, s => ActionFiles.SaveSnapshot(path, s), $"apply {Path.GetFileName(planPath)}");
+
+    PrintEntries(result);
+    Console.WriteLine($"\n백업: {path}");
+    Console.WriteLine("되돌리기: bootdiet restore (가장 최근 백업) 또는 bootdiet restore --snapshot <파일> [--product <이름>]");
+    Console.WriteLine("시작 앱은 작업 관리자 > 시작 앱 탭에서 바로 확인할 수 있고, 실제 효과는 다음 로그온부터 적용됩니다.");
+    return result.Entries.Any(e => e.Status == EntryStatus.Failed) ? 3 : 0;
+}
+
+// ───────── restore: 백업으로 되돌리기 ─────────
+static int RestoreCommand(Dictionary<string, string?> options)
+{
+    if (!OperatingSystem.IsWindows())
+    {
+        Console.Error.WriteLine("restore는 Windows에서만 실행할 수 있습니다.");
+        return 1;
+    }
+    var path = options.GetValueOrDefault("snapshot") ?? ActionFiles.LatestSnapshot(SnapshotFolder());
+    if (path is null || !File.Exists(path))
+    {
+        Console.Error.WriteLine($"되돌릴 백업이 없습니다. (찾은 곳: {SnapshotFolder()})");
+        return 1;
+    }
+    var snapshot = ActionFiles.LoadSnapshot(path);
+    var changed = snapshot.Entries.Count(e => e.Status == EntryStatus.Changed);
+    Console.WriteLine($"백업 {Path.GetFileName(path)} ({snapshot.CreatedAt:yyyy-MM-dd HH:mm}) · 되돌릴 항목 {changed}개");
+    if (changed == 0)
+        return 0;
+
+    var result = new Executor(new WindowsRegistry(), WindowsRegistry.IsAdmin())
+        .Restore(snapshot, s => ActionFiles.SaveSnapshot(path, s), options.GetValueOrDefault("product"));
+    PrintEntries(result, onlyTouched: true);
+    return result.Entries.Any(e => e.Status == EntryStatus.Changed && e.Message is not null) ? 3 : 0;
+}
+
+static int TestItemCommand(string? sub)
+{
+    if (!OperatingSystem.IsWindows())
+    {
+        Console.Error.WriteLine("test-item은 Windows에서만 실행할 수 있습니다.");
+        return 1;
+    }
+    switch (sub)
+    {
+        case "add":
+            TestItem.Add();
+            Console.WriteLine($"시험용 시작 항목 '{TestItem.Name}'을 만들었습니다(사용자 Run 키, 실행 내용: {TestItem.Command}).");
+            Console.WriteLine($"다음: bootdiet plan --only {TestItem.Name} --save test-plan.json → bootdiet apply --plan test-plan.json");
+            return 0;
+        case "remove":
+            TestItem.Remove();
+            Console.WriteLine($"시험용 시작 항목 '{TestItem.Name}'을 지웠습니다.");
+            return 0;
+        default:
+            Console.Error.WriteLine("사용법: bootdiet test-item add | remove");
+            return 1;
+    }
+}
+
+/// <summary>설계 탭 8장: %ProgramData%\BootDiet\snapshots. 쓸 수 없으면 %LOCALAPPDATA%.</summary>
+static string SnapshotFolder()
+{
+    var shared = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "BootDiet", "snapshots");
+    try
+    {
+        Directory.CreateDirectory(shared);
+        var probe = Path.Combine(shared, ".write-test");
+        File.WriteAllText(probe, "");
+        File.Delete(probe);
+        return shared;
+    }
+    catch (Exception e) when (e is UnauthorizedAccessException or IOException)
+    {
+        var local = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BootDiet", "snapshots");
+        Directory.CreateDirectory(local);
+        return local;
+    }
+}
+
+static void PrintEntries(Snapshot snapshot, bool onlyTouched = false)
+{
+    foreach (var group in snapshot.Entries.GroupBy(e => e.Action.ProductName))
+    {
+        var entries = onlyTouched ? group.Where(e => e.Status is EntryStatus.Restored || e.Message is not null && e.Status == EntryStatus.Changed).ToList() : group.ToList();
+        if (entries.Count == 0)
+            continue;
+        Console.WriteLine($"  - {group.Key}");
+        foreach (var e in entries)
+        {
+            var mark = e.Status switch
+            {
+                EntryStatus.Changed => "✔ 바꿈",
+                EntryStatus.Restored => "↺ 되돌림",
+                EntryStatus.AlreadyOff => "· 이미 꺼짐",
+                EntryStatus.Skipped => "· 건너뜀",
+                EntryStatus.RolledBack => "↺ 되돌림",
+                EntryStatus.Failed => "✖ 실패",
+                _ => e.Status.ToString(),
+            };
+            var msg = e.Message is null ? "" : $" — {e.Message}";
+            Console.WriteLine($"      {mark}: {e.Action.ComponentName} ({e.Action.Description}){msg}");
+        }
+    }
+    var counts = snapshot.Entries.GroupBy(e => e.Status).ToDictionary(g => g.Key, g => g.Count());
+    Console.WriteLine($"\n바꿈 {counts.GetValueOrDefault(EntryStatus.Changed)} · 되돌림 {counts.GetValueOrDefault(EntryStatus.Restored)} · 실패 {counts.GetValueOrDefault(EntryStatus.Failed)} · 건너뜀 {counts.GetValueOrDefault(EntryStatus.Skipped) + counts.GetValueOrDefault(EntryStatus.AlreadyOff)}");
 }
 
 static void Print(int componentCount, IReadOnlyList<Product> products, bool showAll, IReadOnlyDictionary<string, ProductRuntime> runtime)
@@ -166,7 +380,20 @@ static int Help()
           --all                            "유지" 제품도 구성 요소까지 자세히 보기
           --no-runtime                     실행 중 프로세스·포트·부팅 기록 측정을 건너뛰기
 
-        아직 없는 명령: plan, apply, restore, bank, check, report (구현 계획 4단계부터 추가)
+        bootdiet plan                      끌 항목 미리보기(PC를 바꾸지 않음). 기본은 추천대로
+          --only <이름,이름>               제품 이름(일부)이나 규칙 ID로 직접 고르기
+          --save <파일>                    계획 저장 → apply에 넘김
+          --input <파일>                   저장해 둔 구성 요소 목록으로 계획(Windows가 아니어도 동작)
+
+        bootdiet apply --plan <파일>       계획 실행(PC를 바꿈). 바꾸기 전 값을 먼저 백업
+          --yes                            확인 질문 없이 진행
+        bootdiet restore                   가장 최근 백업으로 되돌리기
+          --snapshot <파일>                특정 백업으로
+          --product <이름>                 그 제품만
+        bootdiet test-item add | remove    시험용 시작 항목(BootDietTest) 만들기·지우기
+
+        회사 PC에서는 scan과 plan만 쓰세요. apply, restore, test-item은 설정을 바꿉니다.
+        아직 없는 명령: bank, check, report
         """);
     return 0;
 }

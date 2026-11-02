@@ -10,6 +10,9 @@
 // - "kinds": ["Driver", "Service"] 처럼 쓰면 그 종류의 구성 요소에만 적용(match와 AND)
 {
   "rules": [
+    { "id": "bootdiet-test", "product": "부트다이어트 시험용 항목", "vendor": "",
+      "category": "GeneralApp", "action": "Disable", "reason": "bootdiet test-item add 로 만든 시험용 항목입니다. 아무것도 실행하지 않습니다.",
+      "match": { "nameContains": ["BootDietTest"] } },
     // ───────── Windows 기본 ─────────
     { "id": "win-security-health", "product": "Windows 보안 알림 아이콘", "vendor": "Microsoft",
       "category": "WindowsBuiltIn", "action": "Keep", "reason": "Windows 보안 트레이 아이콘입니다. 가볍고 보안 경고를 보여 줍니다.",

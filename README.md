@@ -1,7 +1,7 @@
 # 부트다이어트(가칭)
 
 Windows 시작 앱과 국내 금융 보안 모듈을 자동으로 찾아 **제품 단위로** 묶고 **유지 / 사용 안 함 / 뱅킹 모드 / 제거 / 확인 필요**로 판정하는 프로그램입니다.
-지금은 구현 계획의 0~2단계(읽기 전용 수집 7종 + 규칙 판정 + 제품 묶기)와 3단계 측정 일부(실행 중 프로세스·메모리, 열린 포트, 부팅 기록)까지 들어 있고, PC의 설정은 아무것도 바꾸지 않습니다.
+지금은 구현 계획의 0~2단계(읽기 전용 수집 7종 + 규칙 판정 + 제품 묶기)와 3단계 측정 일부(실행 중 프로세스·메모리, 열린 포트, 부팅 기록), 4단계 끄기·되돌리기(plan / apply / restore)까지 들어 있습니다. scan과 plan은 PC를 바꾸지 않고, apply·restore·test-item만 설정을 바꿉니다.
 
 요구사항과 설계의 기준은 [프로젝트 문서](https://claude.ai/artifact/YZaEuk5QrcCcvVSu5JVpon)의 "요구사항 명세"·"설계" 탭입니다.
 
@@ -48,6 +48,22 @@ dotnet publish src/BootDiet.Cli -c Release -r win-x64 --self-contained -p:Publis
 .\bootdiet.exe help                         # 사용법
 ```
 
+### 끄기와 되돌리기 (4단계)
+
+```powershell
+.\bootdiet.exe plan                         # 추천대로 끌 때 무엇이 바뀌는지 미리보기 (PC를 바꾸지 않음)
+.\bootdiet.exe plan --only KakaoTalk,IPinside --save plan.json   # 직접 골라 계획 저장
+.\bootdiet.exe apply --plan plan.json       # 실행: 바꾸기 전 값을 먼저 백업 → 바꾸기 → 다시 읽어 확인
+.\bootdiet.exe restore                      # 가장 최근 백업으로 되돌리기 (--product 이름 으로 제품만)
+.\bootdiet.exe test-item add                # 시험용 시작 항목(BootDietTest)으로 먼저 연습, 끝나면 test-item remove
+```
+
+- 시작 앱·시작 폴더는 작업 관리자와 같은 방식(StartupApproved 첫 바이트 03), 스토어 앱은 State 1, 서비스는 시작 유형 자동 → 수동으로 끕니다. 실행 중인 프로세스를 강제로 끝내지는 않으므로 효과는 다음 로그온·부팅부터입니다.
+- 한 제품에서 하나라도 실패하면 그 제품만 원래대로 되돌리고 다음 제품을 계속합니다.
+- HKLM 항목(서비스, PC 전체 시작 앱)은 관리자 터미널에서 실행해야 하고, 아니면 건너뜁니다. 드라이버·인증서·방화벽은 끄지 않습니다. 예약 작업 끄기는 5단계에서 붙습니다.
+- 백업 위치: `%ProgramData%\BootDiet\snapshots\` (쓸 수 없으면 `%LOCALAPPDATA%\BootDiet\snapshots\`)
+- 회사 PC에서는 scan과 plan만 쓰세요.
+
 서명하지 않은 실행 파일이라 처음 실행할 때 SmartScreen 경고가 뜰 수 있습니다. "추가 정보 > 실행"을 누르면 됩니다.
 
 ## 규칙 추가하기
@@ -67,5 +83,6 @@ dotnet publish src/BootDiet.Cli -c Release -r win-x64 --self-contained -p:Publis
 ## 다음 단계
 
 - 2단계 남은 것: 서명 유효성 검증(WinVerifyTrust). 수집기 7종(시작 앱·서비스·드라이버·예약 작업·루트 인증서·방화벽·스토어 앱)은 완료
+- 4단계 남은 것: 집 PC에서 시험용 항목 → 실제 앱 순서로 끄기·되돌리기 확인
+- 5단계: 예약 작업 끄기, 관리자 권한 자동 요청(UAC), 자가 보호 서비스 확인
 - 3단계 남은 것: 앱별 부팅 시 CPU·디스크(WDI StartupInfo XML), 끄기 전후 비교. 실행 중 프로세스·메모리, 열린 포트(외부 접속 가능 여부), 부팅 이벤트 100/101은 완료(부팅 기록은 관리자 권한이 필요할 수 있음)
-- 4단계: 백업 → 끄기 → 되돌리기
