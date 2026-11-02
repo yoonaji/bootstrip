@@ -43,8 +43,14 @@ public static class AgentTasks
         try
         {
             dynamic task = service.GetFolder(Folder).GetTask(name);
-            dynamic action = task.Definition.Actions.Item(1);
-            return $"{action.Path} {action.Arguments}".Trim() + (task.Enabled ? "" : " (사용 안 함)");
+            string command = "";
+            foreach (dynamic action in task.Definition.Actions)
+            {
+                command = $"{action.Path} {action.Arguments}".Trim();
+                break;
+            }
+            bool enabled = task.Enabled;
+            return command + (enabled ? "" : " (사용 안 함)");
         }
         catch (COMException e) when ((uint)e.HResult is 0x80070002 or 0x80070003)
         {
