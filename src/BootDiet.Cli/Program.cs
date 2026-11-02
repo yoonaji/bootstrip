@@ -8,6 +8,8 @@ using BootDiet.Windows;
 
 Console.OutputEncoding = Encoding.UTF8;
 
+const int SelfRepairSeconds = 8; // AhnLab 서비스는 2차 실험에서 5초 안에 스스로 복구됨
+
 // 명령 없이 실행하면 scan. 설계 탭 2장의 명령 구조를 따른다.
 var command = args.Length > 0 && !args[0].StartsWith("--") ? args[0].ToLowerInvariant() : "scan";
 var options = ParseArgs(args);
@@ -130,11 +132,10 @@ static int PlanCommand(Dictionary<string, string?> options)
     }
 
     var admins = plan.Actions.Count(a => a.NeedsAdmin);
-    var tasks = plan.Actions.Count(a => a.Operation == PlanOperation.DisableScheduledTask);
     Console.WriteLine();
     Console.WriteLine($"바꿀 항목 {plan.Actions.Count}개 (제품 {plan.Actions.Select(a => a.ProductId).Distinct().Count()}개) · 그중 관리자 권한 필요 {admins}개");
-    if (tasks > 0)
-        Console.WriteLine($"(예약 작업 {tasks}개는 계획에만 있고, 실제 끄기는 5단계에서 지원합니다.)");
+    if (admins > 0)
+        Console.WriteLine("(apply 때 관리자 권한을 요청합니다. 거절하면 관리자 항목은 건너뜁니다.)");
 
     var skipGroups = plan.Skipped.GroupBy(s => s.Reason).OrderByDescending(g => g.Count()).ToList();
     if (skipGroups.Count > 0)
@@ -181,9 +182,8 @@ static int ApplyCommand(Dictionary<string, string?> options)
     }
 
     var isAdmin = WindowsRegistry.IsAdmin();
-    Console.WriteLine($"계획: 바꿀 항목 {plan.Actions.Count}개, 제품 {plan.Actions.Select(a => a.ProductId).Distinct().Count()}개");
-    if (!isAdmin && plan.Actions.Any(a => a.NeedsAdmin))
-        Console.WriteLine($"관리자 권한이 아니라서 관리자 항목 {plan.Actions.Count(a => a.NeedsAdmin)}개는 건너뜁니다.");
+    var adminCount = plan.Actions.Count(a => a.NeedsAdmin);
+    Console.WriteLine($"계획: 바꿀 항목 {plan.Actions.Count}개, 제품 {plan.Actions.Select(a => a.ProductId).Distinct().Count()}개 · 그중 관리자 권한 필요 {adminCount}개");
     if (!options.ContainsKey("yes"))
     {
         Console.Write("진행할까요? 바꾸기 전 값은 백업 파일에 남고 bootdiet restore 로 되돌릴 수 있습니다. (y/N) ");
@@ -194,14 +194,30 @@ static int ApplyCommand(Dictionary<string, string?> options)
         }
     }
 
+    // 관리자 항목이 있으면 UAC로 자기 자신을 관리자 권한으로 다시 실행한다(설계 탭 2장). 거절하면 사용자 항목만.
+    if (!isAdmin && adminCount > 0 && !options.ContainsKey("no-elevate"))
+    {
+        var elevated = Elevation.Relaunch(["apply", "--plan", Path.GetFullPath(planPath), "--yes", "--pause", .. PassThrough(options, "no-wait")]);
+        if (elevated is { } code)
+            return code;
+        Console.WriteLine($"관리자 권한을 받지 못해서 관리자 항목 {adminCount}개는 건너뛰고 나머지만 진행합니다.");
+    }
+
     var folder = SnapshotFolder();
     var path = Path.Combine(folder, ActionFiles.SnapshotFileName(DateTimeOffset.Now));
-    var result = new Executor(new WindowsRegistry(), isAdmin).Apply(plan, s => ActionFiles.SaveSnapshot(path, s), $"apply {Path.GetFileName(planPath)}");
+    Action? wait = options.ContainsKey("no-wait") ? null : () =>
+    {
+        Console.WriteLine($"바꿨습니다. 스스로 되살아나는 프로그램이 있는지 {SelfRepairSeconds}초 기다렸다 다시 확인합니다…");
+        Thread.Sleep(TimeSpan.FromSeconds(SelfRepairSeconds));
+    };
+    var result = new Executor(new WindowsRegistry(), isAdmin, tasks: new WindowsTasks())
+        .Apply(plan, s => ActionFiles.SaveSnapshot(path, s), $"apply {Path.GetFileName(planPath)}", wait);
 
     PrintEntries(result);
     Console.WriteLine($"\n백업: {path}");
     Console.WriteLine("되돌리기: bootdiet restore (가장 최근 백업) 또는 bootdiet restore --snapshot <파일> [--product <이름>]");
-    Console.WriteLine("시작 앱은 작업 관리자 > 시작 앱 탭에서 바로 확인할 수 있고, 실제 효과는 다음 로그온부터 적용됩니다.");
+    Console.WriteLine("시작 앱은 작업 관리자 > 시작 앱 탭에서 바로 확인할 수 있습니다. 서비스는 이미 실행 중이면 다음 부팅부터 뜨지 않습니다.");
+    Pause(options);
     return result.Entries.Any(e => e.Status == EntryStatus.Failed) ? 3 : 0;
 }
 
@@ -225,9 +241,19 @@ static int RestoreCommand(Dictionary<string, string?> options)
     if (changed == 0)
         return 0;
 
-    var result = new Executor(new WindowsRegistry(), WindowsRegistry.IsAdmin())
+    var isAdmin = WindowsRegistry.IsAdmin();
+    if (!isAdmin && !options.ContainsKey("no-elevate") && snapshot.Entries.Any(e => e.Status == EntryStatus.Changed && e.Action.NeedsAdmin))
+    {
+        var elevated = Elevation.Relaunch(["restore", "--snapshot", Path.GetFullPath(path), "--pause", .. PassThrough(options, "product")]);
+        if (elevated is { } code)
+            return code;
+        Console.WriteLine("관리자 권한을 받지 못해서 관리자 항목은 되돌리지 못합니다. 사용자 항목만 되돌립니다.");
+    }
+
+    var result = new Executor(new WindowsRegistry(), isAdmin, tasks: new WindowsTasks())
         .Restore(snapshot, s => ActionFiles.SaveSnapshot(path, s), options.GetValueOrDefault("product"));
     PrintEntries(result, onlyTouched: true);
+    Pause(options);
     return result.Entries.Any(e => e.Status == EntryStatus.Changed && e.Message is not null) ? 3 : 0;
 }
 
@@ -253,6 +279,28 @@ static int TestItemCommand(string? sub)
             Console.Error.WriteLine("사용법: bootdiet test-item add | remove");
             return 1;
     }
+}
+
+/// <summary>관리자 창으로 넘길 때 그대로 전할 옵션.</summary>
+static IEnumerable<string> PassThrough(Dictionary<string, string?> options, params string[] keys)
+{
+    foreach (var key in keys)
+    {
+        if (!options.TryGetValue(key, out var value))
+            continue;
+        yield return "--" + key;
+        if (value is not null)
+            yield return value;
+    }
+}
+
+/// <summary>관리자 권한으로 새로 뜬 창은 끝나면 바로 닫히므로, 결과를 읽을 수 있게 기다린다.</summary>
+static void Pause(Dictionary<string, string?> options)
+{
+    if (!options.ContainsKey("pause"))
+        return;
+    Console.Write("\nEnter를 누르면 이 창을 닫습니다.");
+    Console.ReadLine();
 }
 
 /// <summary>설계 탭 8장: %ProgramData%\BootDiet\snapshots. 쓸 수 없으면 %LOCALAPPDATA%.</summary>
@@ -400,6 +448,8 @@ static int Help()
 
         bootdiet apply --plan <파일>       계획 실행(PC를 바꿈). 바꾸기 전 값을 먼저 백업
           --yes                            확인 질문 없이 진행
+          --no-elevate                     관리자 권한을 요청하지 않고 사용자 항목만
+          --no-wait                        바꾼 뒤 스스로 되살아나는지 기다렸다 확인하는 단계를 건너뛰기
         bootdiet restore                   가장 최근 백업으로 되돌리기
           --snapshot <파일>                특정 백업으로
           --product <이름>                 그 제품만

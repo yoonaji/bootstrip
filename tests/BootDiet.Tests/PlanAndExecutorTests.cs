@@ -216,4 +216,78 @@ public class PlanAndExecutorTests
         Assert.Contains(plan.Actions, a => a.ComponentName == "KakaoTalk" && a.Key.StartsWith("HKCU"));
         Assert.DoesNotContain(plan.Actions, a => a.ComponentName == "CCleaner Update"); // 깨진 항목은 제거 단계에서
     }
+
+    // ───────── 5단계 ─────────
+
+    private static Component Task(string name, bool enabled = true) =>
+        new() { Name = name, Kind = ComponentKind.ScheduledTask, Scope = Scope.Machine, Location = @"작업 스케줄러 \", Enabled = enabled, FileExists = true };
+
+    [Fact]
+    public void ScheduledTasksAreDisabledAndRestored()
+    {
+        var reg = new InMemoryRegistry();
+        var tasks = new InMemoryTasks();
+        tasks.Tasks[@"\GoogleUserPEH\RunPlatformExperienceHelper_Daily"] = true;
+        tasks.Tasks[@"\ZoomUpdateTaskUser"] = false; // 수집 뒤 사용자가 이미 꺼 둠
+
+        var plan = PlanFor(
+            ProductOf("chrome", ItemCategory.GeneralApp, RecommendedAction.Disable, Task(@"GoogleUserPEH\RunPlatformExperienceHelper_Daily")),
+            ProductOf("zoom", ItemCategory.Updater, RecommendedAction.Disable, Task("ZoomUpdateTaskUser")));
+        Assert.Equal(@"\GoogleUserPEH\RunPlatformExperienceHelper_Daily", plan.Actions[0].ValueName);
+
+        var applied = new Executor(reg, isAdmin: false, () => Now, tasks).Apply(plan, _ => { });
+
+        Assert.Equal(EntryStatus.Changed, applied.Entries[0].Status);
+        Assert.Equal(EntryStatus.AlreadyOff, applied.Entries[1].Status);
+        Assert.False(tasks.Tasks[@"\GoogleUserPEH\RunPlatformExperienceHelper_Daily"]);
+
+        new Executor(reg, false, tasks: tasks).Restore(applied, _ => { });
+        Assert.True(tasks.Tasks[@"\GoogleUserPEH\RunPlatformExperienceHelper_Daily"]);
+        Assert.False(tasks.Tasks[@"\ZoomUpdateTaskUser"]);
+    }
+
+    [Fact]
+    public void TaskWithoutPermissionFailsAndRollsBackItsProduct()
+    {
+        var reg = new InMemoryRegistry();
+        var tasks = new InMemoryTasks();
+        tasks.Tasks[@"\HncUpdate"] = true;
+        tasks.Locked.Add(@"\HncUpdate");
+
+        var plan = PlanFor(ProductOf("hancom", ItemCategory.Updater, RecommendedAction.Disable, Run("HncUpdateTray"), Task("HncUpdate")));
+        var result = new Executor(reg, false, () => Now, tasks).Apply(plan, _ => { });
+
+        Assert.Equal(EntryStatus.RolledBack, result.Entries[0].Status);
+        Assert.Equal(EntryStatus.Failed, result.Entries[1].Status);
+        Assert.Null(reg.Read(HkcuRun, "HncUpdateTray"));
+    }
+
+    [Fact]
+    public void ServiceThatRepairsItselfIsReportedAsCannotDisable()
+    {
+        // 2차 실험: AhnLab 서비스는 시작 유형을 바꿔도 5초 안에 스스로 되돌린다
+        const string v3 = @"HKLM\SYSTEM\CurrentControlSet\Services\V3 Service";
+        var reg = new InMemoryRegistry();
+        reg.Write(v3, "Start", RegValue.DWord(2));
+        reg.Write(@"HKLM\SYSTEM\CurrentControlSet\Services\nxTSSvc", "Start", RegValue.DWord(2));
+
+        var plan = PlanFor(
+            ProductOf("ahnlab", ItemCategory.FinancialSecurity, RecommendedAction.Remove, Run("V3 Tray"), Service("V3 Service")),
+            ProductOf("nxts", ItemCategory.FinancialSecurity, RecommendedAction.Remove, Service("nxTSSvc")));
+
+        var waited = false;
+        var result = new Executor(reg, true, () => Now).Apply(plan, _ => { }, waitForSelfRepair: () =>
+        {
+            waited = true;
+            reg.Write(v3, "Start", RegValue.DWord(2)); // 기다리는 사이 프로그램이 되돌림
+        });
+
+        Assert.True(waited);
+        var svc = result.Entries.Single(e => e.Action.ComponentName == "V3 Service");
+        Assert.Equal(EntryStatus.Failed, svc.Status);
+        Assert.Contains("제거만 가능", svc.Message);
+        Assert.Equal(EntryStatus.RolledBack, result.Entries.Single(e => e.Action.ComponentName == "V3 Tray").Status);
+        Assert.Null(reg.Read(HkcuRun, "V3 Tray"));                                  // 반쯤 꺼진 채로 두지 않음
+        Assert.Equal(EntryStatus.Changed, result.Entries.Single(e => e.Action.ComponentName == "nxTSSvc").Status); // 다른 제품은 그대로
+    }
 }

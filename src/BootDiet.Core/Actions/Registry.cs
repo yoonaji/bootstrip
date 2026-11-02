@@ -57,3 +57,26 @@ public sealed class InMemoryRegistry : IRegistryAccess
             HashCode.Combine(k.Item1.ToUpperInvariant(), k.Item2.ToUpperInvariant());
     }
 }
+
+/// <summary>예약 작업 켜기·끄기 창구. Windows에서는 작업 스케줄러 COM, 테스트에서는 가짜.</summary>
+public interface ITaskAccess
+{
+    /// <summary>작업이 없으면 null.</summary>
+    bool? IsEnabled(string path);
+    void SetEnabled(string path, bool enabled);
+}
+
+public sealed class InMemoryTasks : ITaskAccess
+{
+    public Dictionary<string, bool> Tasks { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public HashSet<string> Locked { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public bool? IsEnabled(string path) => Tasks.TryGetValue(path, out var e) ? e : null;
+
+    public void SetEnabled(string path, bool enabled)
+    {
+        if (Locked.Contains(path))
+            throw new UnauthorizedAccessException($"{path} 작업을 바꿀 권한이 없습니다.");
+        Tasks[path] = enabled;
+    }
+}
