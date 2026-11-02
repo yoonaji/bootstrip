@@ -80,6 +80,30 @@ public static class TestItem
         k.SetValue(Name, Command, RegistryValueKind.String);
     }
 
+    /// <summary>
+    /// 제거(10단계) 시험용 "설치된 앱" 항목. 사용자 전용(HKCU)이고, 제거 명령은 시험용 Run 값과 이 항목만 지운다.
+    /// 실제 프로그램을 지우지 않고 remove 흐름(찾기 → 제거 프로그램 실행 → 다시 스캔)을 끝까지 시험할 수 있다.
+    /// </summary>
+    public static void AddUninstall()
+    {
+        using var k = Registry.CurrentUser.CreateSubKey($@"{UninstallCollector.UninstallKey}\{Name}", writable: true);
+        k.SetValue("DisplayName", "부트다이어트 시험용 항목");
+        k.SetValue("Publisher", "BootDiet");
+        k.SetValue("DisplayVersion", "1.0");
+        k.SetValue("UninstallString", UninstallText);
+        k.SetValue("NoModify", 1, RegistryValueKind.DWord);
+    }
+
+    public static string UninstallText
+    {
+        get
+        {
+            var reg = Path.Combine(Environment.SystemDirectory, "reg.exe");
+            var cmd = Path.Combine(Environment.SystemDirectory, "cmd.exe");
+            return $"\"{cmd}\" /c \"\"{reg}\" delete HKCU\\{RunKey} /v {Name} /f & \"{reg}\" delete HKCU\\{UninstallCollector.UninstallKey}\\{Name} /f\"";
+        }
+    }
+
     /// <summary>Run 값과, 끄면서 생긴 StartupApproved 값까지 지운다.</summary>
     public static void Remove()
     {
@@ -87,5 +111,6 @@ public static class TestItem
             k?.DeleteValue(Name, throwOnMissingValue: false);
         using (var a = Registry.CurrentUser.OpenSubKey($@"{Planner.ApprovedBase}\Run", writable: true))
             a?.DeleteValue(Name, throwOnMissingValue: false);
+        Registry.CurrentUser.DeleteSubKeyTree($@"{UninstallCollector.UninstallKey}\{Name}", throwOnMissingSubKey: false);
     }
 }

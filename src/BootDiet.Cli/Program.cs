@@ -28,6 +28,7 @@ return command switch
     "agent" => AgentCommand(args.Length > 1 && !args[1].StartsWith("--") ? args[1].ToLowerInvariant() : "status", options),
     "help" or "-h" or "/?" => Help(),
     "report" => ReportCommand(options),
+    "remove" => RemoveCommand(args.Length > 1 && !args[1].StartsWith("--") ? args[1] : null, options),
     _ => Unknown(command),
 };
 }
@@ -295,10 +296,17 @@ static int TestItemCommand(string? sub)
             return 0;
         case "remove":
             TestItem.Remove();
-            Console.WriteLine($"시험용 시작 항목 '{TestItem.Name}'을 지웠습니다.");
+            Console.WriteLine($"시험용 시작 항목 '{TestItem.Name}'(과 시험용 설치 항목)을 지웠습니다.");
+            return 0;
+        case "add-installed":
+            TestItem.Add();
+            TestItem.AddUninstall();
+            Console.WriteLine($"시험용 시작 항목 '{TestItem.Name}'과 '설치된 앱' 항목 '부트다이어트 시험용 항목'을 만들었습니다(사용자 전용, 아무것도 설치하지 않음).");
+            Console.WriteLine($"제거 명령은 이 두 항목만 지웁니다: {TestItem.UninstallText}");
+            Console.WriteLine($"다음: bootdiet remove {TestItem.Name}");
             return 0;
         default:
-            Console.Error.WriteLine("사용법: bootdiet test-item add | remove");
+            Console.Error.WriteLine("사용법: bootdiet test-item add | add-installed | remove");
             return 1;
     }
 }
@@ -547,6 +555,190 @@ static string? LatestBeforeScan() =>
         .SelectMany(d => Directory.GetFiles(d, "before-*.json"))
         .OrderByDescending(f => Path.GetFileName(f), StringComparer.Ordinal)
         .FirstOrDefault();
+
+// ───────── 10단계: remove (제조사 제거 프로그램 실행, 되돌릴 수 없음) ─────────
+static int RemoveCommand(string? name, Dictionary<string, string?> options)
+{
+    if (!OperatingSystem.IsWindows())
+    {
+        Console.Error.WriteLine("remove는 Windows에서만 실행할 수 있습니다.");
+        return 1;
+    }
+    if (string.IsNullOrWhiteSpace(name))
+        return Usage("bootdiet remove <제품 이름> [--dry-run] [--silent] [--yes]");
+
+    var products = LoadProducts(options);
+    if (products is null)
+        return 1;
+    var picked = Uninstaller.Pick(products, name);
+    if (picked.Count == 0)
+    {
+        Console.Error.WriteLine($"'{name}'에 해당하는 제품을 찾지 못했습니다. bootdiet scan 에 보이는 제품 이름을 써 주세요.");
+        return 1;
+    }
+    if (picked.Count > 1)
+    {
+        Console.Error.WriteLine($"'{name}'에 해당하는 제품이 {picked.Count}개입니다. 하나만 고르도록 더 정확히 써 주세요: {string.Join(", ", picked.Select(p => p.Name))}");
+        return 1;
+    }
+    var product = picked[0];
+    if (Uninstaller.RefuseReason(product) is { } refuse)
+    {
+        Console.Error.WriteLine($"{product.Name}: {refuse}");
+        return 1;
+    }
+
+    var windowsDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+    var matches = Uninstaller.Match(product, UninstallCollector.Read(), windowsDir).ToList();
+    var silent = options.ContainsKey("silent");
+    Console.WriteLine($"■ 제거: {product.Name} ({CategoryLabel(product.Category)})");
+    Console.WriteLine($"  구성 요소 {product.Components.Count}개: {string.Join(", ", product.Components.GroupBy(c => KindLabel(c)).Select(g => $"{g.Key} {g.Count()}"))}");
+    if (matches.Count == 0)
+    {
+        Console.WriteLine("  '설치된 앱' 목록에서 이 제품의 제거 프로그램을 찾지 못했습니다.");
+        Console.WriteLine("  설정 → 앱 → 설치된 앱에서 직접 찾아 지우거나, bootdiet plan --only 로 끄기만 할 수 있습니다.");
+        return 1;
+    }
+
+    Console.WriteLine("  Windows '설치된 앱'에서 찾은 항목:");
+    for (var i = 0; i < matches.Count; i++)
+    {
+        var m = matches[i];
+        var cmd = Uninstaller.CommandFor(m.Entry, silent);
+        Console.WriteLine($"   [{i + 1}] {m.Entry.DisplayName}{(m.Entry.Version is { } v ? " " + v : "")}{(m.Entry.Publisher is { } pub ? " · " + pub : "")} — {m.Reason}{(m.Entry.NeedsAdmin ? " · 관리자 권한 필요" : "")}");
+        Console.WriteLine($"       실행할 명령: {cmd?.ToString() ?? "(제거 명령이 없음)"}");
+    }
+    Console.WriteLine("  ※ 제거는 되돌릴 수 없습니다. 은행 사이트에 다시 들어가면 설치하라고 나오고, 그때 다시 깔면 됩니다.");
+    if (options.ContainsKey("dry-run"))
+    {
+        Console.WriteLine("\n미리보기라 아무것도 지우지 않았습니다.");
+        return 0;
+    }
+
+    // 고르기: 하나면 그것, 여럿이면 번호로(같은 회사의 다른 제품을 함께 지우지 않게 기본은 고르지 않음).
+    var chosen = matches.Where(m => Uninstaller.CommandFor(m.Entry, silent) is not null).ToList();
+    if (options.GetValueOrDefault("entry") is { } entryText)
+        chosen = entryText.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(t => int.TryParse(t, out var n) && n >= 1 && n <= matches.Count ? matches[n - 1] : null)
+            .OfType<UninstallMatch>().ToList();
+    else if (chosen.Count > 1 && !options.ContainsKey("yes"))
+    {
+        Console.Write($"\n여러 항목이 있습니다. 지울 번호를 쉼표로 적어 주세요(전부는 a, 취소는 Enter): ");
+        var answer = Console.ReadLine()?.Trim() ?? "";
+        chosen = answer.Equals("a", StringComparison.OrdinalIgnoreCase) ? chosen
+            : answer.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => int.TryParse(t, out var n) && n >= 1 && n <= matches.Count ? matches[n - 1] : null)
+                .OfType<UninstallMatch>().ToList();
+    }
+    if (chosen.Count == 0)
+    {
+        Console.WriteLine("지울 항목을 고르지 않았습니다. 아무것도 지우지 않았습니다.");
+        return 0;
+    }
+    if (!options.ContainsKey("yes"))
+    {
+        Console.Write($"\n{string.Join(", ", chosen.Select(c => c.Entry.DisplayName))}을(를) 제거할까요? 되돌릴 수 없습니다. (y/N) ");
+        if (!string.Equals(Console.ReadLine()?.Trim(), "y", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine("취소했습니다. 아무것도 지우지 않았습니다.");
+            return 0;
+        }
+    }
+
+    // PC 전체 설치는 관리자 권한으로 다시 실행한다. 고른 번호를 그대로 넘긴다.
+    if (chosen.Any(c => c.Entry.NeedsAdmin) && !WindowsRegistry.IsAdmin() && !options.ContainsKey("no-elevate"))
+    {
+        var numbers = string.Join(',', chosen.Select(c => matches.IndexOf(c) + 1));
+        var code = Elevation.Relaunch(["remove", name, "--yes", "--entry", numbers, "--pause", .. PassThrough(options, "silent", "rules")]);
+        if (code is null)
+        {
+            Console.WriteLine("관리자 권한을 받지 못해 제거하지 않았습니다.");
+            return 1;
+        }
+        return code.Value;
+    }
+
+    SaveBeforeScan();
+    var results = new List<string>();
+    foreach (var m in chosen)
+        results.Add(RunUninstaller(m.Entry, Uninstaller.CommandFor(m.Entry, silent)!));
+
+    // 다시 스캔해서 남은 것을 보여 준다(설계 탭 5장).
+    Console.WriteLine("\n다시 스캔하는 중…");
+    var after = LoadProducts(options) ?? [];
+    var leftovers = Uninstaller.Leftovers(product, after);
+    var output = new List<string> { $"제거: {product.Name}" };
+    output.AddRange(results);
+    if (leftovers.Count == 0)
+        output.Add("  ✔ 다시 스캔해 보니 이 제품의 구성 요소가 남아 있지 않습니다.");
+    else
+    {
+        output.Add($"  ! 남은 구성 요소 {leftovers.Count}개(제거 프로그램이 지우지 않은 것):");
+        foreach (var c in leftovers)
+            output.Add($"     - {KindLabel(c)} {c.Name}{(c.FileExists == false ? " (파일 없음, 흔적만 남음)" : "")}");
+        output.Add("    남은 서비스·시작 앱은 bootdiet plan --only 로 끌 수 있습니다. 인증서·방화벽 정리는 다음 버전에서 합니다.");
+    }
+    foreach (var line in output)
+        Console.WriteLine(line);
+    Log(output);
+
+    // 정책에서 빼서 check가 없는 항목을 찾지 않게 한다.
+    try
+    {
+        var policy = ActionFiles.LoadPolicy(PolicyPath(), DateTimeOffset.Now);
+        if (policy.Products.Any(p => p.ProductId == product.Id) && leftovers.Count == 0)
+            ActionFiles.SavePolicy(PolicyPath(), policy.Without(i => i.Action.ProductId == product.Id, DateTimeOffset.Now));
+    }
+    catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+
+    Console.WriteLine("\n정리 전·후 비교: bootdiet report");
+    Pause(options);
+    return results.Any(r => r.StartsWith("  !")) ? 3 : 0;
+}
+
+static string CategoryLabel(ItemCategory c) => c switch
+{
+    ItemCategory.FinancialSecurity => "금융·인증 보안 모듈",
+    ItemCategory.HardwareUtility => "하드웨어 유틸",
+    ItemCategory.Game => "게임",
+    ItemCategory.Updater => "업데이트 도구",
+    ItemCategory.GeneralApp => "일반 앱",
+    ItemCategory.Broken => "깨진 항목",
+    ItemCategory.Suspicious => "출처가 의심스러운 항목",
+    _ => "분류 안 됨",
+};
+
+/// <summary>제거 프로그램을 실행하고, 설치 항목이 사라질 때까지 기다린다. 결과 한 줄.</summary>
+static string RunUninstaller(UninstallEntry entry, UninstallCommand command)
+{
+    Console.WriteLine($"\n{entry.DisplayName} 제거 프로그램을 실행합니다: {command}");
+    if (!command.Silent)
+        Console.WriteLine("  제거 창이 뜨면 안내대로 진행해 주세요. 다 끝날 때까지 여기서 기다립니다(그만 기다리려면 Enter).");
+    try
+    {
+        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(command.Executable, command.Arguments)
+        {
+            UseShellExecute = true,
+            WorkingDirectory = Path.GetDirectoryName(command.Executable) is { Length: > 0 } dir && Directory.Exists(dir) ? dir : Environment.SystemDirectory,
+        });
+        // 제거 프로그램은 임시 폴더로 자기를 복사해 띄우고 바로 끝나는 경우가 많다(NSIS 등).
+        // 그래서 프로세스가 끝났는지보다 '설치된 앱' 항목이 사라졌는지를 기준으로 기다린다.
+        var deadline = DateTime.Now.AddMinutes(15);
+        while (DateTime.Now < deadline)
+        {
+            if (!UninstallCollector.Exists(entry))
+                return $"  ✔ {entry.DisplayName}: 제거됨";
+            if (!Console.IsInputRedirected && Console.KeyAvailable && Console.ReadKey(intercept: true).Key == ConsoleKey.Enter)
+                break;
+            Thread.Sleep(1000);
+        }
+        return $"  ! {entry.DisplayName}: '설치된 앱'에 아직 남아 있습니다(제거를 취소했거나 재부팅 뒤 끝나는 제거일 수 있음)";
+    }
+    catch (System.ComponentModel.Win32Exception e)
+    {
+        return $"  ! {entry.DisplayName}: 제거 프로그램을 실행하지 못했습니다({e.Message})";
+    }
+}
 
 // ───────── 7단계: 뱅킹 모드 · check · agent ─────────
 static int BankCommand(string sub, Dictionary<string, string?> options)
@@ -929,20 +1121,20 @@ static int Help()
         bootdiet agent install | remove    로그온할 때마다 check를 자동 실행하는 예약 작업 등록·삭제
         bootdiet agent status              등록 상태 보기
 
+        bootdiet remove <제품 이름>        제품 제거(되돌릴 수 없음): 제조사 제거 프로그램 실행 → 다시 스캔해 남은 것 보여 주기
+          --dry-run                        무엇을 어떤 명령으로 지울지만 보기(PC를 바꾸지 않음)
+          --silent                         제거 창 없이 조용히(제조사가 지원할 때)
+          --entry <번호,번호>              찾은 항목이 여럿일 때 지울 번호
+        bootdiet test-item add-installed   제거 시험용 '설치된 앱' 항목까지 만들기(사용자 전용, 실제 설치 없음)
+
         bootdiet report                    정리 전·후 비교(PC를 바꾸지 않음). 정리 전 = 마지막 apply 직전 기록, 정리 뒤 = 지금
           --before <파일>                  정리 전으로 쓸 scan --save 파일
           --after <파일>                   정리 뒤로 쓸 scan --save 파일(없으면 지금 스캔)
           --md <파일>                      결과를 마크다운 표로 저장(제안서용)
 
-        회사 PC에서는 scan, plan, report만 쓰세요. apply, restore, test-item, bank, check, agent는 설정을 바꿉니다.
+        회사 PC에서는 scan, plan, report, remove --dry-run만 쓰세요. apply, restore, test-item, bank, check, agent, remove는 설정을 바꿉니다.
         """);
     return 0;
-}
-
-static int NotYet(string command)
-{
-    Console.Error.WriteLine($"'{command}' 명령은 아직 없습니다. 지금은 PC를 바꾸지 않는 scan만 됩니다.");
-    return 2;
 }
 
 static int Unknown(string command)
