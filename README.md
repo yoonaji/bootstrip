@@ -1,7 +1,7 @@
 # 부트다이어트(가칭)
 
 Windows 시작 앱과 국내 금융 보안 모듈을 자동으로 찾아 **제품 단위로** 묶고 **유지 / 사용 안 함 / 뱅킹 모드 / 제거 / 확인 필요**로 판정하는 프로그램입니다.
-지금은 구현 계획의 0~1.5단계(읽기 전용 수집 + 규칙 판정 + 제품 묶기)까지 들어 있고, PC의 설정은 아무것도 바꾸지 않습니다.
+지금은 구현 계획의 0~2단계 일부(읽기 전용 수집: 시작 앱·서비스·드라이버·예약 작업 + 규칙 판정 + 제품 묶기)까지 들어 있고, PC의 설정은 아무것도 바꾸지 않습니다.
 
 요구사항과 설계의 기준은 [프로젝트 문서](https://claude.ai/artifact/YZaEuk5QrcCcvVSu5JVpon)의 "요구사항 명세"·"설계" 탭입니다.
 
@@ -15,7 +15,7 @@ Windows 시작 앱과 국내 금융 보안 모듈을 자동으로 찾아 **제�
 | 폴더 | 내용 | 테스트 위치 |
 |---|---|---|
 | `src/BootDiet.Core` | 데이터 모델(Component, Product, Verdict), 명령줄 해석, 규칙 DB, 판정·제품 묶기 | 어디서나 |
-| `src/BootDiet.Windows` | 레지스트리 Run 키·시작 폴더·StartupApproved 수집, 파일 버전·서명 읽기 | Windows |
+| `src/BootDiet.Windows` | Run 키·시작 폴더·StartupApproved, 서비스·드라이버(레지스트리), 예약 작업(작업 스케줄러 COM) 수집, 파일 버전·서명 읽기 | Windows |
 | `src/BootDiet.Cli` | 명령줄 프로그램 `bootdiet` | 둘 다 |
 | `tests/BootDiet.Tests` | xUnit 테스트 | 어디서나 |
 | `rules/rules.json` | 판정 규칙 DB (위에 있는 규칙이 우선) | |
@@ -64,6 +64,6 @@ dotnet publish src/BootDiet.Cli -c Release -r win-x64 --self-contained -p:Publis
 
 ## 다음 단계
 
-- 2단계 마무리: 서비스·예약 작업·드라이버·인증서 수집기, 규칙 보강, 서명 유효성 검증(WinVerifyTrust)
+- 2단계 마무리: 인증서·방화벽 수집기, 스토어 앱 StartupTask, 서명 유효성 검증(WinVerifyTrust). 서비스·드라이버·예약 작업 수집기는 완료(Microsoft 것은 자동으로 뺌)
 - 3단계: 성능·보안 수치 읽기 (StartupInfo XML, 부팅 이벤트 100/101, 메모리, 열린 포트)
 - 4단계: 백업 → 끄기 → 되돌리기

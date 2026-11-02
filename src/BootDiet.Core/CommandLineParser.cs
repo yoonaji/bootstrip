@@ -3,7 +3,7 @@ namespace BootDiet.Core;
 /// <summary>Run 키 등에 적힌 명령줄에서 실행 파일 경로를 뽑아낸다.</summary>
 public static class CommandLineParser
 {
-    private static readonly string[] ExecutableExtensions = [".exe", ".com", ".bat", ".cmd", ".lnk", ".dll"];
+    private static readonly string[] ExecutableExtensions = [".exe", ".com", ".bat", ".cmd", ".lnk", ".dll", ".sys"];
 
     /// <param name="expandVariables">%ProgramFiles% 같은 환경변수를 펼칠 함수. 테스트에서 바꿔 끼울 수 있다.</param>
     public static string? ExtractExecutablePath(string? command, Func<string, string>? expandVariables = null)

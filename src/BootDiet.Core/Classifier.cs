@@ -56,7 +56,7 @@ public sealed class Classifier(RuleSet rules)
 
         foreach (var rule in rules.Rules)
         {
-            if (rule.Match.IsMatch(component))
+            if (rule.Applies(component))
                 return (new Verdict(rule.Category, rule.Action, rule.Reason, VerdictSource.Rule, rule.Id, rule.Product), rule);
         }
 

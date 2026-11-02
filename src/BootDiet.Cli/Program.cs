@@ -77,7 +77,8 @@ static void Print(int componentCount, IReadOnlyList<Product> products)
             foreach (var c in product.Components)
             {
                 var off = c.Enabled ? "" : " (꺼짐)";
-                Console.WriteLine($"      · {c.Name} [{KindLabel(c)}]{off}");
+                var trigger = c.Trigger is null ? "" : $" · {c.Trigger}";
+                Console.WriteLine($"      · {c.Name} [{KindLabel(c)}{trigger}]{off}");
             }
         }
         Console.WriteLine();
