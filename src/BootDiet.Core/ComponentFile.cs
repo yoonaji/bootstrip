@@ -2,6 +2,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using BootDiet.Core.Models;
+using BootDiet.Core.Runtime;
 
 namespace BootDiet.Core;
 
@@ -32,13 +33,17 @@ public static class ComponentFile
             .ToList();
     }
 
-    public static void Save(string path, IReadOnlyList<Component> components) =>
-        File.WriteAllText(path, JsonSerializer.Serialize(new ComponentsWrapper(components), Options));
+    /// <summary>같은 파일에 함께 저장해 둔 실행 중 측정값. 없으면 null.</summary>
+    public static RuntimeSnapshot? LoadRuntime(string path) =>
+        JsonSerializer.Deserialize<ComponentsWrapper>(File.ReadAllText(path), Options)?.Runtime;
+
+    public static void Save(string path, IReadOnlyList<Component> components, RuntimeSnapshot? runtime = null) =>
+        File.WriteAllText(path, JsonSerializer.Serialize(new ComponentsWrapper(components, runtime), Options));
 
     public static void SaveProducts(string path, IReadOnlyList<Product> products) =>
         File.WriteAllText(path, JsonSerializer.Serialize(new ProductsWrapper(products), Options));
 
-    private sealed record ComponentsWrapper(IReadOnlyList<Component> Components);
+    private sealed record ComponentsWrapper(IReadOnlyList<Component> Components, RuntimeSnapshot? Runtime = null);
 
     private sealed record ProductsWrapper(IReadOnlyList<Product> Products);
 }

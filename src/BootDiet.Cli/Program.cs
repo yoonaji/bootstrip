@@ -2,6 +2,7 @@ using System.Text;
 using BootDiet.Core;
 using BootDiet.Core.Models;
 using BootDiet.Core.Rules;
+using BootDiet.Core.Runtime;
 using BootDiet.Windows;
 
 Console.OutputEncoding = Encoding.UTF8;
@@ -23,13 +24,17 @@ static int Scan(Dictionary<string, string?> options)
     var rulesPath = options.GetValueOrDefault("rules") ?? Path.Combine(AppContext.BaseDirectory, "rules", "rules.json");
 
     IReadOnlyList<Component> components;
+    RuntimeSnapshot? runtime = null;
     if (options.TryGetValue("input", out var input))
     {
         components = ComponentFile.Load(input!);
+        runtime = ComponentFile.LoadRuntime(input!);
     }
     else if (OperatingSystem.IsWindows())
     {
         components = WindowsStartupScanner.Scan();
+        if (!options.ContainsKey("no-runtime"))
+            runtime = RuntimeProbe.Take();
     }
     else
     {
@@ -38,7 +43,7 @@ static int Scan(Dictionary<string, string?> options)
     }
 
     if (options.TryGetValue("save", out var savePath))
-        ComponentFile.Save(savePath!, components);
+        ComponentFile.Save(savePath!, components, runtime);
 
     var windowsDir = OperatingSystem.IsWindows() ? Environment.GetFolderPath(Environment.SpecialFolder.Windows) : null;
     var collected = components.Count;
@@ -53,7 +58,17 @@ static int Scan(Dictionary<string, string?> options)
     if (options.TryGetValue("json", out var jsonPath))
         ComponentFile.SaveProducts(jsonPath!, products);
 
-    Print(components.Count, products, options.ContainsKey("all"));
+    var attached = runtime is null
+        ? new Dictionary<string, ProductRuntime>()
+        : RuntimeAttribution.Attach(products, runtime, windowsDir);
+
+    Print(components.Count, products, options.ContainsKey("all"), attached);
+    if (runtime is not null)
+    {
+        foreach (var line in MeasurementSummary.Build(products, attached, runtime).ToLines())
+            Console.WriteLine(line);
+        Console.WriteLine();
+    }
     if (hidden > 0)
         Console.WriteLine($"(Windows 자체 구성 요소 {hidden}개는 정리 대상이 아니라서 뺐습니다.)");
     if (firewallOnly > 0)
@@ -61,7 +76,7 @@ static int Scan(Dictionary<string, string?> options)
     return 0;
 }
 
-static void Print(int componentCount, IReadOnlyList<Product> products, bool showAll)
+static void Print(int componentCount, IReadOnlyList<Product> products, bool showAll, IReadOnlyDictionary<string, ProductRuntime> runtime)
 {
     (RecommendedAction Action, string Title)[] groups =
     [
@@ -92,6 +107,8 @@ static void Print(int componentCount, IReadOnlyList<Product> products, bool show
             }
             Console.WriteLine($"  - {product.Name}{vendor}{state}");
             Console.WriteLine($"      {product.Verdict.Reason}");
+            if (MeasurementSummary.ProductLine(runtime.GetValueOrDefault(product.Id)) is { } running)
+                Console.WriteLine($"      {running}");
             foreach (var c in product.Components)
             {
                 var off = c.Enabled ? "" : " (꺼짐)";
@@ -129,7 +146,7 @@ static string KindLabel(Component c) => (c.Kind, c.Scope) switch
     (ComponentKind.StartupFolder, _) => "시작 앱 · 시작 폴더(공용)",
     (ComponentKind.Service, _) => "서비스",
     (ComponentKind.ScheduledTask, _) => "예약 작업",
-    (ComponentKind.PackagedApp, _) => "스토어 앱",
+    (ComponentKind.PackagedApp, _) => "스토어 앱 시작 작업",
     (ComponentKind.Driver, _) => "커널 드라이버",
     (ComponentKind.RootCertificate, _) => "루트 인증서",
     (ComponentKind.FirewallRule, _) => "방화벽 규칙",
@@ -147,6 +164,7 @@ static int Help()
           --json <파일>                    판정 결과(제품 목록) 저장
           --rules <파일>                   다른 규칙 파일 사용
           --all                            "유지" 제품도 구성 요소까지 자세히 보기
+          --no-runtime                     실행 중 프로세스·포트·부팅 기록 측정을 건너뛰기
 
         아직 없는 명령: plan, apply, restore, bank, check, report (구현 계획 4단계부터 추가)
         """);

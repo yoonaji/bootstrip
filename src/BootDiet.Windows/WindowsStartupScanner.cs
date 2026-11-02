@@ -19,6 +19,7 @@ public static class WindowsStartupScanner
             new ScheduledTaskCollector(),
             new RootCertificateCollector(),
             new FirewallRuleCollector(),
+            new PackagedAppCollector(),
         ];
 
         return collectors
