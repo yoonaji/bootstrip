@@ -47,6 +47,9 @@ public sealed record Component
     /// <summary>언제 실행되는지 사람이 읽는 값. 서비스는 "자동", "자동(지연)", "수동", 예약 작업은 "로그온 시" 등.</summary>
     public string? Trigger { get; init; }
 
+    /// <summary>종류별 추가 정보. 인증서는 만료일·지문, 방화벽 규칙은 허용 범위·포트.</summary>
+    public string? Detail { get; init; }
+
     /// <summary>실행 파일이 실제로 존재하는지. null이면 확인하지 않음.</summary>
     public bool? FileExists { get; init; }
 

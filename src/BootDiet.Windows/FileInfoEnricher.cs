@@ -11,6 +11,9 @@ public static class FileInfoEnricher
 {
     public static Component Enrich(Component item)
     {
+        if (item.Kind == ComponentKind.RootCertificate)
+            return item;
+
         var path = ResolvePath(item.ExecutablePath);
         if (path is null)
             return item;
