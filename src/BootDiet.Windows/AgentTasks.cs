@@ -50,7 +50,8 @@ public static class AgentTasks
                 break;
             }
             bool enabled = task.Enabled;
-            return command + (enabled ? "" : " (사용 안 함)");
+            int logon = task.Definition.Principal.LogonType;
+            return command + (logon == 2 ? " · 창 없이" : " · 창 보임") + (enabled ? "" : " (사용 안 함)");
         }
         catch (Exception e) when (NotFound(e))
         {
@@ -60,7 +61,24 @@ public static class AgentTasks
 
     private static string CurrentUser => WindowsIdentity.GetCurrent().Name;
 
+    /// <summary>
+    /// 창 없이 돌리려고 S4U(사용자가 로그온해 있지 않아도 실행, 암호 저장 안 함)로 등록한다. S4U 작업은 화면 없는
+    /// 세션에서 돌아 검은 콘솔 창이 뜨지 않는다(집 PC에서 InteractiveToken으로 돌렸더니 창이 떠서 바꿈). HKCU는 같은
+    /// 사용자 것이 그대로 보인다. S4U 등록이 막힌 PC에서는 예전처럼 InteractiveToken으로 등록한다(창은 보임).
+    /// </summary>
     private static void Register(string name, string exe, string arguments, string description, string trigger)
+    {
+        try
+        {
+            Register(name, exe, arguments, description, trigger, "S4U", 2); // TASK_LOGON_S4U
+        }
+        catch (IOException)
+        {
+            Register(name, exe, arguments, description, trigger, "InteractiveToken", 3); // TASK_LOGON_INTERACTIVE_TOKEN
+        }
+    }
+
+    private static void Register(string name, string exe, string arguments, string description, string trigger, string logonType, int logonCode)
     {
         var xml = $"""
             <?xml version="1.0" encoding="UTF-16"?>
@@ -70,7 +88,7 @@ public static class AgentTasks
               <Principals>
                 <Principal id="Author">
                   <UserId>{Esc(CurrentUser)}</UserId>
-                  <LogonType>InteractiveToken</LogonType>
+                  <LogonType>{logonType}</LogonType>
                   <RunLevel>HighestAvailable</RunLevel>
                 </Principal>
               </Principals>
@@ -97,8 +115,8 @@ public static class AgentTasks
             dynamic folder;
             try { folder = service.GetFolder(Folder); }
             catch (Exception e) when (NotFound(e)) { folder = root.CreateFolder(Folder.TrimStart('\\')); }
-            // 6 = TASK_CREATE_OR_UPDATE, 3 = TASK_LOGON_INTERACTIVE_TOKEN
-            folder.RegisterTask(name, xml, 6, null, null, 3);
+            // 6 = TASK_CREATE_OR_UPDATE
+            folder.RegisterTask(name, xml, 6, null, null, logonCode);
             return 0;
         });
     }
