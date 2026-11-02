@@ -71,15 +71,22 @@ public sealed class Classifier(RuleSet rules)
 
         if (rule is not null)
         {
-            var app = c.ProductName ?? Path.GetFileNameWithoutExtension(c.FileName);
-            return ($"rule:{rule.Id}:{app}", app, c.Company ?? NullIfEmpty(rule.Vendor));
+            var placeholder = c.ProductName is not null && IsPlaceholder(c.ProductName);
+            var app = placeholder || c.ProductName is null ? Path.GetFileNameWithoutExtension(c.FileName) : c.ProductName;
+            var vendor = placeholder ? c.Signer : c.Company;
+            return ($"rule:{rule.Id}:{app}", app, vendor ?? NullIfEmpty(rule.Vendor));
         }
 
-        if (verdict.Category != ItemCategory.Broken && c.Company is not null && c.ProductName is not null)
+        if (verdict.Category != ItemCategory.Broken && c.Company is not null && c.ProductName is not null && !IsPlaceholder(c.ProductName))
             return ($"auto:{c.Company}|{c.ProductName}", c.ProductName, c.Company);
 
-        return ($"component:{c.Id}", c.Name, c.Company);
+        return ($"component:{c.Id}", c.Name, c.ProductName is not null && IsPlaceholder(c.ProductName) ? c.Signer : c.Company);
     }
+
+    /// <summary>개발 도구의 견본 값이 그대로 남은 제품명. 이걸로 묶으면 서로 다른 드라이버가 한 제품이 된다.</summary>
+    private static bool IsPlaceholder(string productName) =>
+        productName.Contains(" DDK ", StringComparison.OrdinalIgnoreCase)
+        || productName.Contains("WDK", StringComparison.Ordinal);
 
     private static string? NullIfEmpty(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
 

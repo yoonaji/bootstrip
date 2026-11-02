@@ -40,12 +40,19 @@ static int Scan(Dictionary<string, string?> options)
     if (options.TryGetValue("save", out var savePath))
         ComponentFile.Save(savePath!, components);
 
+    var windowsDir = OperatingSystem.IsWindows() ? Environment.GetFolderPath(Environment.SpecialFolder.Windows) : null;
+    var collected = components.Count;
+    components = WindowsOwnFilter.Apply(components, windowsDir);
+    var hidden = collected - components.Count;
+
     var products = new Classifier(RuleSet.Load(rulesPath)).ClassifyProducts(components);
 
     if (options.TryGetValue("json", out var jsonPath))
         ComponentFile.SaveProducts(jsonPath!, products);
 
     Print(components.Count, products);
+    if (hidden > 0)
+        Console.WriteLine($"(Windows 자체 서비스·드라이버 {hidden}개는 정리 대상이 아니라서 뺐습니다.)");
     return 0;
 }
 
