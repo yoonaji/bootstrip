@@ -32,6 +32,7 @@
                 <TextBlock Text="{Binding FinancialRunning}" Classes="big" />
                 <TextBlock Text="{Binding FinancialTotal}" Classes="unit" />
               </StackPanel>
+              <TextBlock Text="{Binding BeforeRunning}" Classes="muted" IsVisible="{Binding HasBefore}" />
             </StackPanel>
           </Border>
           <Border Grid.Column="2" Classes="card" ToolTip.Tip="{Binding ExposedPortsTip}">
@@ -44,6 +45,7 @@
                 <TextBlock Text="{Binding ExposedPorts}" Classes="big" />
                 <TextBlock Text="개" Classes="unit" />
               </StackPanel>
+              <TextBlock Text="{Binding BeforePorts}" Classes="muted" IsVisible="{Binding HasBefore}" />
             </StackPanel>
           </Border>
           <Border Grid.Column="4" Classes="card" ToolTip.Tip="{Binding MemoryTip}">
@@ -53,9 +55,31 @@
                 <TextBlock Text="{Binding Memory}" Classes="big" />
                 <TextBlock Text="MB" Classes="unit" />
               </StackPanel>
+              <TextBlock Text="{Binding BeforeMemory}" Classes="muted" IsVisible="{Binding HasBefore}" />
             </StackPanel>
           </Border>
         </Grid>
+
+        <!-- G3 정리 전·후: 정리 전 스캔이 있을 때만 -->
+        <Border Classes="card" IsVisible="{Binding HasChanges}">
+          <StackPanel Spacing="20">
+            <StackPanel Spacing="6">
+              <TextBlock Text="정리 전·후" Classes="h2" />
+              <TextBlock Text="{Binding CompareWhen}" Classes="muted small" />
+            </StackPanel>
+            <ItemsControl ItemsSource="{Binding Changes}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ChangeLine">
+                  <Grid ColumnDefinitions="28,260,*" Margin="0,7">
+                    <Border Classes="dot" Classes.keep="{Binding IsDone}" Classes.remove="{Binding IsStill}" Classes.review="{Binding IsNew}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding Product}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,0,16,0" />
+                    <TextBlock Grid.Column="2" Text="{Binding Text}" Foreground="{DynamicResource BodyText}" TextWrapping="Wrap" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
 
         <!-- 판정 -->
         <Border Classes="card">
@@ -114,7 +138,7 @@
     <Border Grid.Row="1" Background="{DynamicResource BarBackground}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Padding="72,20">
       <Grid ColumnDefinitions="Auto,*,Auto,Auto">
         <ListBox Classes="segment" SelectedIndex="0" IsEnabled="False"
-                 ToolTip.Tip="게임·사무·최소 프리셋은 G3에서 붙입니다">
+                 ToolTip.Tip="게임·사무·최소 프리셋은 다음에 붙여요">
           <ListBox.ItemsPanel>
             <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
           </ListBox.ItemsPanel>

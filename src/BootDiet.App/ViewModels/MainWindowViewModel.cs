@@ -18,12 +18,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly ScanService scanner;
     private readonly ScanSource source;
 
-    public MainWindowViewModel(ScanService scanner, ScanSource source)
+    public MainWindowViewModel(ScanService scanner, ScanSource source, AppServices? services = null)
     {
         this.scanner = scanner;
         this.source = source;
+        Services = services ?? AppServices.For(source);
+        Bank = new BankViewModel(Services);
         current = Scan;
     }
+
+    public AppServices Services { get; }
+
+    /// <summary>왼쪽 아래 뱅킹 모드 카드(G4).</summary>
+    public BankViewModel Bank { get; }
 
     public IReadOnlyList<NavItem> Nav { get; } =
     [
@@ -51,6 +58,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private ProductListViewModel? products;
 
+    [ObservableProperty]
+    private PreviewViewModel? preview;
+
+    [ObservableProperty]
+    private HistoryViewModel? history;
+
+    /// <summary>정리 전 스캔(G3). apply가 남긴 before-*.json 또는 --before 파일.</summary>
+    [ObservableProperty]
+    private ScanResult? before;
+
     public bool HasResult => Result is not null;
     public string SourceLabel => Result?.SourceLabel ?? (source.IsLive ? "이 PC" : Path.GetFileName(source.InputFile!));
 
@@ -62,14 +79,33 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             "summary" => Summary!,
             "products" => Products!,
-            "preview" => new PlaceholderViewModel("미리보기", "고른 처리 수준대로 무엇이 어떻게 바뀌는지 보여 주고, 관리자 권한으로 적용하는 화면입니다.", "다음 단계(G2)에서 만듭니다. 지금은 제품 화면에서 처리 수준만 고를 수 있습니다.", Products?.ChangeSummary),
-            "history" => new PlaceholderViewModel("이력", "바꾼 내용을 시각별로 보여 주고, 줄마다 되돌리는 화면입니다.", "다음 단계(G2)에서 만듭니다. 지금은 bootdiet restore 명령으로 되돌릴 수 있습니다.", null),
+            "preview" => RefreshPreview(),
+            "history" => ReloadHistory(),
             _ => Current,
         };
     }
 
+    private PreviewViewModel RefreshPreview()
+    {
+        Preview!.Refresh();
+        return Preview;
+    }
+
+    private HistoryViewModel ReloadHistory()
+    {
+        History!.Reload();
+        return History;
+    }
+
     [RelayCommand]
     public void GoTo(string key) => SelectedNav = Nav.First(n => n.Key == key);
+
+    /// <summary>apply·restore 뒤에 부른다. 뱅킹 모드로 둔 제품과 이력이 바뀌었을 수 있다.</summary>
+    public void OnChanged()
+    {
+        Bank.Reload();
+        History?.Reload();
+    }
 
     [RelayCommand]
     public async Task StartScanAsync()
@@ -81,9 +117,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         try
         {
             var r = await scanner.ScanAsync(source, progress);
+            Before = await LoadBeforeAsync(r);
             Result = r;
             Products = new ProductListViewModel(r);
-            Summary = new SummaryViewModel(r, Products, this);
+            Summary = new SummaryViewModel(r, Products, this, Before);
+            Preview = new PreviewViewModel(r, Products, Services, this);
+            History = new HistoryViewModel(Services, this);
+            Bank.Reload();
             OnPropertyChanged(nameof(SourceLabel));
             Scan.Finish();
             GoTo("summary");
@@ -91,6 +131,28 @@ public sealed partial class MainWindowViewModel : ObservableObject
         catch (Exception e)
         {
             Scan.Fail(e.Message);
+        }
+    }
+}
+
+public sealed partial class MainWindowViewModel
+{
+    /// <summary>정리 전 스캔을 읽는다. 지금 스캔보다 나중 것이거나 읽지 못하면 비교하지 않는다.</summary>
+    private async Task<ScanResult?> LoadBeforeAsync(ScanResult now)
+    {
+        var path = source.BeforeFile ?? (source.IsLive ? Services.Data.LatestBeforeScan() : null);
+        if (path is null || !File.Exists(path))
+            return null;
+        try
+        {
+            var before = await scanner.ScanAsync(new ScanSource(path, source.RulesFile));
+            if (before.Snapshot is { } b && now.Snapshot is { } a && b.TakenAt >= a.TakenAt)
+                return null;
+            return before;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or System.Text.Json.JsonException)
+        {
+            return null;
         }
     }
 }
@@ -148,12 +210,20 @@ public sealed partial class SummaryViewModel : ObservableObject
     private readonly ProductListViewModel products;
     private readonly MeasurementSummary? m;
 
-    public SummaryViewModel(ScanResult scan, ProductListViewModel products, MainWindowViewModel main)
+    private readonly MeasurementSummary? b;
+
+    public SummaryViewModel(ScanResult scan, ProductListViewModel products, MainWindowViewModel main, ScanResult? before = null)
     {
         this.scan = scan;
         this.products = products;
         Main = main;
         m = scan.Summary;
+        b = m is null ? null : before?.Summary;
+        if (b is not null && before!.Snapshot is { } bs && scan.Snapshot is { } s)
+        {
+            Report = new CleanupReport(ScanFigures.Build(before.Products, before.Runtime, bs), ScanFigures.Build(scan.Products, scan.Runtime, s));
+            Changes = Report.ProductChanges().Select(ChangeLine.Parse).ToList();
+        }
         products.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(ProductListViewModel.ChangeSummary))
@@ -184,12 +254,25 @@ public sealed partial class SummaryViewModel : ObservableObject
     public string ProductCount => $"{scan.Products.Count}";
     public string ComponentCount => $"구성 요소 {scan.ComponentCount}개";
 
-    public string Headline => m switch
+    public string Headline => (m, b) switch
     {
-        null => $"제품 {scan.Products.Count}개를 검사했어요",
-        { FinancialRunning: > 0 } => $"금융 모듈 {m.FinancialRunning}개가 늘 켜져 있어요",
+        (null, _) => $"제품 {scan.Products.Count}개를 검사했어요",
+        ({ } a, { } x) when a.FinancialRunning < x.FinancialRunning => $"늘 켜진 금융 모듈이 {x.FinancialRunning}개에서 {a.FinancialRunning}개로 줄었어요",
+        ({ FinancialRunning: > 0 }, _) => $"금융 모듈 {m.FinancialRunning}개가 늘 켜져 있어요",
         _ => "늘 켜진 금융 모듈은 없어요",
     };
+
+    // ── G3: 정리 전·후. 정리 전 스캔이 있을 때만 큰 숫자 아래에 "정리 전 N"을 붙이고, 바뀐 제품을 줄로 보여 준다.
+    public CleanupReport? Report { get; }
+    public IReadOnlyList<ChangeLine> Changes { get; } = [];
+    public bool HasBefore => b is not null;
+    public bool HasChanges => Changes.Count > 0;
+    public string BeforeRunning => b is null ? "" : $"정리 전 {b.FinancialRunning}";
+    public string BeforePorts => b is null ? "" : $"정리 전 {b.FinancialExposedPorts}";
+    public string BeforeMemory => b is null ? "" : $"정리 전 {b.CleanupMemoryBytes / 1024.0 / 1024.0:#,0}";
+    public string CompareWhen => Report is { } r
+        ? $"정리 전 {r.Before.TakenAt.ToLocalTime():M월 d일 HH:mm} · 정리 뒤 {r.After.TakenAt.ToLocalTime():M월 d일 HH:mm}"
+        : "";
     public string SubLine => $"제품 {scan.Products.Count}개 검사 · 고른 것만 바뀌고 되돌릴 수 있어요";
 
     public string FinancialRunning => m is null ? "-" : $"{m.FinancialRunning}";
@@ -202,7 +285,8 @@ public sealed partial class SummaryViewModel : ObservableObject
     public string Memory => m is null ? "-" : $"{m.CleanupMemoryBytes / 1024.0 / 1024.0:#,0}";
     public string MemoryTip => m is null ? "측정 안 함" : $"정리 대상이 지금 쓰는 메모리 · 그중 금융·인증 모듈 {Labels.Mb(m.FinancialMemoryBytes)}";
 
-    public string BootLine => m is null || m.Boots.Count == 0
+    public string BootLine => Report is { } r ? r.BootVerdict()
+        : m is null || m.Boots.Count == 0
         ? "부팅 기록이 없어요"
         : $"부팅 시간 평균 {m.Boots.Average(b => b.BootMs) / 1000.0:0.0}초 · 정리 뒤 다시 재서 비교해요";
 
@@ -227,6 +311,23 @@ public sealed partial class SummaryViewModel : ObservableObject
     ]);
 }
 
+/// <summary>정리 전·후 제품 한 줄(CleanupReport.ProductChanges). ✔ 멈춤·사라짐, ! 아직 실행 중, + 새로 생김.</summary>
+public sealed record ChangeLine(string Product, string Text, string Kind)
+{
+    public bool IsDone => Kind == "done";
+    public bool IsStill => Kind == "still";
+    public bool IsNew => Kind == "new";
+
+    public static ChangeLine Parse(string line)
+    {
+        var t = line.TrimStart();
+        var kind = t.StartsWith('✔') ? "done" : t.StartsWith('!') ? "still" : "new";
+        t = t[1..].Trim();
+        var colon = t.IndexOf(": ", StringComparison.Ordinal);
+        return colon < 0 ? new ChangeLine(t, "", kind) : new ChangeLine(t[..colon], t[(colon + 2)..], kind);
+    }
+}
+
 /// <summary>판정 막대 한 칸. Weight는 막대 안에서 차지하는 비율(WeightPanel).</summary>
 public sealed record VerdictCount(string Title, int Count, string Kind) : IWeighted
 {
@@ -244,6 +345,3 @@ public interface IWeighted
 {
     double Weight { get; }
 }
-
-/// <summary>아직 만들지 않은 화면 자리.</summary>
-public sealed record PlaceholderViewModel(string Title, string Purpose, string Status, string? Extra);
