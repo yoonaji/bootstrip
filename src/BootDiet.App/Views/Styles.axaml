@@ -58,6 +58,16 @@
           <SolidColorBrush x:Key="AccentButtonForeground" Color="#FFFFFF" />
           <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#FFFFFF" />
           <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#FFFFFF" />
+          <!-- 체크 상자도 주황으로(미리보기 줄 체크) -->
+          <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked" Color="#C9511D" />
+          <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver" Color="#C9511D" />
+          <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPressed" Color="#C9511D" />
+          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked" Color="#C9511D" />
+          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPointerOver" Color="#C9511D" />
+          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPressed" Color="#C9511D" />
+          <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundChecked" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundCheckedPointerOver" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundCheckedPressed" Color="#FFFFFF" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
           <LinearGradientBrush x:Key="PageBackground" StartPoint="0%,0%" EndPoint="0%,100%">
@@ -106,6 +116,16 @@
           <SolidColorBrush x:Key="AccentButtonForeground" Color="#2D2A32" />
           <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#2D2A32" />
           <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#2D2A32" />
+          <!-- 체크 상자도 주황으로(미리보기 줄 체크) -->
+          <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked" Color="#FF8A4C" />
+          <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver" Color="#FF8A4C" />
+          <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPressed" Color="#FF8A4C" />
+          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked" Color="#FF8A4C" />
+          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPointerOver" Color="#FF8A4C" />
+          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPressed" Color="#FF8A4C" />
+          <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundChecked" Color="#2D2A32" />
+          <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundCheckedPointerOver" Color="#2D2A32" />
+          <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundCheckedPressed" Color="#2D2A32" />
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
       <StreamGeometry x:Key="IconSummary">M3,3 H10 V12 H3 Z M14,3 H21 V8 H14 Z M14,12 H21 V21 H14 Z M3,16 H10 V21 H3 Z</StreamGeometry>
@@ -318,5 +338,15 @@
   </Style>
   <Style Selector="ListBox.nav > ListBoxItem:selected PathIcon">
     <Setter Property="Foreground" Value="{DynamicResource AccentSoft}" />
+  </Style>
+
+  <!-- 뱅킹 모드 남은 시간 막대 -->
+  <Style Selector="ProgressBar.bank">
+    <Setter Property="Foreground" Value="{DynamicResource BankButton}" />
+    <Setter Property="Background" Value="{DynamicResource Track}" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="MinHeight" Value="6" />
+    <Setter Property="Height" Value="6" />
+    <Setter Property="MinWidth" Value="0" />
   </Style>
 </Styles>

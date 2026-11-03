@@ -14,7 +14,8 @@
     <DataTemplate DataType="vm:ScanViewModel"><v:ScanView /></DataTemplate>
     <DataTemplate DataType="vm:SummaryViewModel"><v:SummaryView /></DataTemplate>
     <DataTemplate DataType="vm:ProductListViewModel"><v:ProductsView /></DataTemplate>
-    <DataTemplate DataType="vm:PlaceholderViewModel"><v:PlaceholderView /></DataTemplate>
+    <DataTemplate DataType="vm:PreviewViewModel"><v:PreviewView /></DataTemplate>
+    <DataTemplate DataType="vm:HistoryViewModel"><v:HistoryView /></DataTemplate>
   </Window.DataTemplates>
 
   <Grid ColumnDefinitions="232,*">
@@ -24,14 +25,33 @@
         <TextBlock DockPanel.Dock="Top" Text="부트다이어트" FontSize="19" FontWeight="Bold" LetterSpacing="-0.4" Margin="14,0,0,32" />
 
         <StackPanel DockPanel.Dock="Bottom" Spacing="12">
-          <Border Background="{DynamicResource BankBackground}" CornerRadius="20" Padding="20">
-            <StackPanel Spacing="14">
+          <!-- G4 뱅킹 모드: 평소엔 꺼 둔 금융 모듈을 30분만 켠다 -->
+          <Border Background="{DynamicResource BankBackground}" CornerRadius="20" Padding="20" DataContext="{Binding Bank}">
+            <StackPanel Spacing="14" x:DataType="vm:BankViewModel">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <PathIcon Data="{StaticResource IconShield}" Width="16" Height="16" Foreground="{DynamicResource BankText}" />
                 <TextBlock Text="뱅킹 모드" FontWeight="Bold" Foreground="{DynamicResource BankText}" />
+                <TextBlock Text="켜짐" FontWeight="Bold" Foreground="{DynamicResource BankText}" IsVisible="{Binding IsActive}" />
               </StackPanel>
-              <Button Classes="bank" Content="30분 켜기" IsEnabled="False"
-                      ToolTip.Tip="뱅킹 모드 화면은 다음 단계(G4)에서 붙입니다. 지금은 bootdiet bank on 명령으로 켤 수 있습니다." />
+
+              <StackPanel Spacing="14" IsVisible="{Binding IsIdle}">
+                <TextBlock Text="{Binding ProductsText}" Classes="muted small" />
+                <Button Classes="bank" Content="{Binding OnLabel}" Command="{Binding TurnOnCommand}" IsEnabled="{Binding CanTurnOn}"
+                        ToolTip.Tip="{Binding OnTip}" ToolTip.ShowOnDisabled="True" />
+              </StackPanel>
+
+              <StackPanel Spacing="10" IsVisible="{Binding IsActive}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TextBlock Text="{Binding RemainingText}" FontSize="30" FontWeight="SemiBold" LetterSpacing="-0.8" Foreground="{DynamicResource TextBrush}" />
+                  <TextBlock Text="남음" Classes="muted" VerticalAlignment="Bottom" Margin="0,0,0,5" />
+                </StackPanel>
+                <ProgressBar Classes="bank" Minimum="0" Maximum="100" Value="{Binding RemainingPercent}" />
+                <TextBlock Text="{Binding UntilText}" Classes="muted small" />
+                <Button Classes="bank" Content="지금 끄기" Command="{Binding TurnOffCommand}" IsEnabled="{Binding CanTurnOff}" Margin="0,4,0,0" />
+              </StackPanel>
+
+              <TextBlock Text="{Binding Message}" Classes="small" Foreground="{DynamicResource WarnText}" TextWrapping="Wrap"
+                         IsVisible="{Binding Message, Converter={x:Static ObjectConverters.IsNotNull}}" />
             </StackPanel>
           </Border>
           <Button Classes="quiet" Content="다시 스캔" FontSize="13" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"

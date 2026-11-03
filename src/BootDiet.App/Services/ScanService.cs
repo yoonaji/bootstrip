@@ -7,7 +7,8 @@ using BootDiet.Windows;
 namespace BootDiet.App.Services;
 
 /// <summary>어디서 구성 요소를 가져올지. 이 PC를 직접 스캔하거나, 저장해 둔 스캔 파일을 연다.</summary>
-public sealed record ScanSource(string? InputFile, string? RulesFile = null, bool Runtime = true)
+/// <param name="BeforeFile">정리 전 스캔(G3 전·후 비교). 없으면 이 PC에서 apply가 남긴 가장 최근 before-*.json.</param>
+public sealed record ScanSource(string? InputFile, string? RulesFile = null, bool Runtime = true, string? BeforeFile = null)
 {
     public static ScanSource FromArgs(IReadOnlyList<string> args)
     {
@@ -16,7 +17,7 @@ public sealed record ScanSource(string? InputFile, string? RulesFile = null, boo
             var i = args.ToList().FindIndex(a => a.Equals(key, StringComparison.OrdinalIgnoreCase));
             return i >= 0 && i + 1 < args.Count ? args[i + 1] : null;
         }
-        return new ScanSource(Value("--input"), Value("--rules"), !args.Contains("--no-runtime"));
+        return new ScanSource(Value("--input"), Value("--rules"), !args.Contains("--no-runtime"), Value("--before"));
     }
 
     public bool IsLive => InputFile is null;
@@ -31,7 +32,11 @@ public sealed record ScanResult(
     int HiddenWindowsComponents,
     int HiddenFirewallOnlyProducts,
     string SourceLabel,
-    IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> Warnings)
+{
+    /// <summary>측정 원본. 정리 전·후 비교(ScanFigures)에 쓴다.</summary>
+    public RuntimeSnapshot? Snapshot { get; init; }
+}
 
 /// <summary>스캔 진행 화면(S0)에 보여 줄 한 단계.</summary>
 public sealed record ScanProgress(int Step, int TotalSteps, string Title, int FoundSoFar);
@@ -99,7 +104,10 @@ public sealed class ScanService
             collected - filtered.Count,
             all.Count - products.Count,
             label,
-            warnings);
+            warnings)
+        {
+            Snapshot = runtime,
+        };
     }
 
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]

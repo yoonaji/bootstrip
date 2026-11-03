@@ -55,7 +55,55 @@ public class ScreenTests
         Shot(window, $"products-locked-{theme}");
 
         vm.GoTo("preview");
-        Assert.IsType<PlaceholderViewModel>(vm.Current);
+        Assert.IsType<PreviewViewModel>(vm.Current);
+        window.Close();
+    }
+
+    /// <summary>G2·G4 흐름: 미리보기 → 적용 결과 → 이력 → 뱅킹 모드 켜짐. bootdiet.exe 대신 가짜를 쓴다.</summary>
+    [AvaloniaTheory]
+    [InlineData("light")]
+    [InlineData("dark")]
+    public async Task 미리보기에서_적용하고_이력과_뱅킹_모드를_본다(string theme)
+    {
+        Avalonia.Application.Current!.RequestedThemeVariant = theme == "dark" ? ThemeVariant.Dark : ThemeVariant.Light;
+        var fake = new FakeBootDiet(selfRepairing: "IPinside");
+        var vm = new MainWindowViewModel(new ScanService(), new ScanSource(TestApp.Sample("laptop4-runtime.json")), fake.Services);
+        var window = new MainWindow { DataContext = vm };
+        window.Show();
+        await vm.StartScanAsync();
+
+        // 제거를 하나 골라 결과 화면의 "제거" 칸도 찍는다.
+        var remove = vm.Products!.All.First(i => i.Options.Contains(TreatmentOption.Remove) && i.Choice.Level == TreatmentLevel.Disable);
+        remove.Choice = TreatmentOption.Remove;
+        vm.GoTo("preview");
+        var p = (PreviewViewModel)vm.Current;
+        p.Rows[1].IsOn = false;
+        Shot(window, $"preview-{theme}");
+
+        await p.ApplyAsync();
+        Assert.True(p.IsDone);
+        Shot(window, $"preview-done-{theme}");
+
+        await vm.Bank.TurnOnAsync();
+        vm.GoTo("history");
+        Shot(window, $"history-{theme}");
+        window.Close();
+    }
+
+    /// <summary>G3: 집 PC 정리 전·후(3차 실험).</summary>
+    [AvaloniaTheory]
+    [InlineData("light")]
+    [InlineData("dark")]
+    public async Task 정리_뒤_요약에_전후_비교가_나온다(string theme)
+    {
+        Avalonia.Application.Current!.RequestedThemeVariant = theme == "dark" ? ThemeVariant.Dark : ThemeVariant.Light;
+        var vm = new MainWindowViewModel(new ScanService(),
+            new ScanSource(TestApp.Sample("home-after.json"), BeforeFile: TestApp.Sample("home-before.json")), new FakeBootDiet().Services);
+        var window = new MainWindow { DataContext = vm, Height = 1180 };
+        window.Show();
+        await vm.StartScanAsync();
+        Assert.True(vm.Summary!.HasBefore);
+        Shot(window, $"summary-after-{theme}");
         window.Close();
     }
 

@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BootDiet.App.ViewModels"
+             x:Class="BootDiet.App.Views.HistoryView"
+             x:DataType="vm:HistoryViewModel">
+  <!-- G2 이력. 바꾼 때마다 한 줄: 언제 · 어떤 제품 · 몇 개 · 되돌리기. -->
+  <Grid Margin="56,48,56,40" RowDefinitions="Auto,*">
+    <StackPanel Spacing="12" Margin="0,0,0,36">
+      <TextBlock Classes="h1" Text="바꾼 기록" />
+      <TextBlock Classes="muted" FontSize="15" Text="바꾸기 전 값이 남아 있어서 언제든 되돌릴 수 있어요" />
+    </StackPanel>
+
+    <Border Grid.Row="1" Classes="card" IsVisible="{Binding IsEmpty}" VerticalAlignment="Top" MaxWidth="560" HorizontalAlignment="Left">
+      <StackPanel Spacing="20">
+        <TextBlock Classes="h2" Text="아직 바꾼 것이 없어요" />
+        <Button Classes="accent" Content="미리보기 →" HorizontalAlignment="Left"
+                Command="{Binding Main.GoToCommand}" CommandParameter="preview" />
+      </StackPanel>
+    </Border>
+
+    <StackPanel Grid.Row="1" Spacing="16" IsVisible="{Binding HasRows}" MaxWidth="960" HorizontalAlignment="Stretch">
+      <Border Classes="badge warn" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" HorizontalAlignment="Left" Padding="14,8">
+        <TextBlock Text="{Binding Error}" FontSize="13" />
+      </Border>
+      <Border Classes="card" Padding="16" MaxHeight="{Binding $parent[Grid].Bounds.Height}">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+          <ItemsControl ItemsSource="{Binding Rows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:HistoryRow">
+                <Grid ColumnDefinitions="140,*,Auto,Auto" MinHeight="64" Margin="16,0">
+                  <TextBlock Text="{Binding When}" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding ProductsText}" FontSize="15" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding CountText}" Classes="muted" VerticalAlignment="Center" />
+                  </StackPanel>
+                  <Border Grid.Column="2" Classes="badge ok" IsVisible="{Binding HasState}" Margin="0,0,16,0">
+                    <TextBlock Text="{Binding StateText}" />
+                  </Border>
+                  <Button Grid.Column="3" Content="되돌리기" Command="{Binding RestoreCommand}" IsEnabled="{Binding CanRestore}" VerticalAlignment="Center" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Border>
+      <TextBlock Classes="muted small" Text="{Binding CannotChangeReason}" IsVisible="{Binding CannotChangeReason, Converter={x:Static ObjectConverters.IsNotNull}}" Margin="8,0" />
+    </StackPanel>
+  </Grid>
+</UserControl>
