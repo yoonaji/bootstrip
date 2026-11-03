@@ -347,3 +347,33 @@ public class AiKeyTests
         Assert.Null(AiKey.FindWithSource(n => n == "OPENAI_API_KEY" ? "sk-여기에키" : null, []));
     }
 }
+
+public class AiFailureTests
+{
+    [Fact]
+    public async Task FirstFailedBatchStopsFurtherRequests()
+    {
+        var model = new FakeAiModel(_ => null); // 잔액 부족처럼 매번 실패
+        var products = Enumerable.Range(1, 40).Select(i => new Product($"u{i}", $"App{i}", null,
+            new Verdict(ItemCategory.Unknown, RecommendedAction.Review, "", VerdictSource.Default),
+            [new Component { Name = $"App{i}", Kind = ComponentKind.RunKey }])).ToList();
+        var result = await new AiJudge(model, AiCache.InMemory()).JudgeAsync(products);
+        Assert.Single(model.Requests);
+        Assert.Equal(40, result.Failed);
+
+        var fin = products.Take(12).Select(p => p with { Verdict = new Verdict(ItemCategory.FinancialSecurity, RecommendedAction.Remove, "", VerdictSource.Rule) }).ToList();
+        var vuln = new FakeAiModel(_ => null);
+        var findings = await new VulnChecker(vuln, AiCache.InMemory()).CheckAsync(fin);
+        Assert.Single(vuln.Requests);
+        Assert.Equal(12, findings.Count);
+        Assert.All(findings, f => Assert.Equal("unknown", f.Status));
+    }
+
+    [Fact]
+    public void BootDietItselfIsNotScored()
+    {
+        var self = new Product("s", "bootdiet", null, new Verdict(ItemCategory.Unknown, RecommendedAction.Review, "", VerdictSource.Default),
+            [new Component { Name = "BootDiet Check", Kind = ComponentKind.ScheduledTask, ExecutablePath = @"C:\Users\a\Projects\boot-diet\bootdiet.exe" }]);
+        Assert.Empty(AnomalyScorer.Score([self]));
+    }
+}

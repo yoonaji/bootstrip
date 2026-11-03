@@ -92,6 +92,11 @@ public sealed class AiJudge(IAiModel model, AiCache cache)
                 };
                 asked++;
                 var reply = await model.AskAsync(request, ct);
+                if (reply is null)
+                {
+                    // 키·잔액·네트워크 문제면 나머지 묶음도 똑같이 실패한다. 더 묻지 않는다.
+                    break;
+                }
                 var byId = new Dictionary<string, JsonElement>();
                 if (reply is { } r)
                     foreach (var item in ProductBrief.Arr(r, "items"))
@@ -104,14 +109,11 @@ public sealed class AiJudge(IAiModel model, AiCache cache)
                         answers[p.Id] = (item, false);
                         cache.Set(CacheKey(p), item, model.Name);
                     }
-                    else
-                        failed++;
                 }
             }
             cache.Save();
         }
-        else
-            failed = toAsk.Count;
+        failed = toAsk.Count(p => !answers.ContainsKey(p.Id));
 
         var decisions = new List<AiDecision>();
         var updated = products.Select(p =>

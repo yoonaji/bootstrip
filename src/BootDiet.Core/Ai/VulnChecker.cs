@@ -99,6 +99,13 @@ public sealed class VulnChecker(IAiModel model, AiCache cache)
                     Effort = "medium",
                     MaxTokens = 16000,
                 }, ct);
+                if (reply is null)
+                {
+                    // 첫 묶음부터 실패하면(키·잔액·네트워크) 나머지도 묻지 않고 "확인 못 함"으로 둔다.
+                    results.AddRange(toAsk.Where(p => results.All(r => r.ProductId != p.Id))
+                        .Select(p => new VulnFinding(p.Id, p.Name, InstalledVersion(p), "unknown", [], null, "AI 답을 받지 못했습니다.", [], month, false)));
+                    break;
+                }
                 var asOf = reply is { } rr && ProductBrief.Str(rr, "as_of") is { Length: >= 7 } a ? a[..7] : month;
                 var byId = new Dictionary<string, JsonElement>();
                 if (reply is { } r)

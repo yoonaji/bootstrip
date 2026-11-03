@@ -23,4 +23,15 @@ public static class AiModels
         OpenAiModel o => o.LastError,
         _ => null,
     };
+
+    /// <summary>한 줄 오류. 줄바꿈·\r이 섞이면 콘솔에서 앞 글자를 덮어써 깨져 보인다. 잔액 부족은 알아보기 쉽게 바꾼다.</summary>
+    public static string Short(Exception e)
+    {
+        var line = (e.Message.Split('\n').FirstOrDefault() ?? "").Replace("\r", "").Trim();
+        if (line.Contains("insufficient_quota", StringComparison.OrdinalIgnoreCase) || line.Contains("credit balance", StringComparison.OrdinalIgnoreCase))
+            return "API 크레딧이 없습니다(잔액 0). 결제 페이지에서 충전해 주세요";
+        if (line.Contains("401") || line.Contains("invalid_api_key", StringComparison.OrdinalIgnoreCase))
+            return "API 키가 맞지 않습니다. .env의 키를 확인해 주세요";
+        return line.Length > 160 ? line[..160] + "…" : line;
+    }
 }

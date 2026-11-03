@@ -39,7 +39,7 @@ public static class AnomalyScorer
         var result = new List<ProductRisk>();
         foreach (var p in products)
         {
-            if (p.Category == ItemCategory.WindowsBuiltIn)
+            if (p.Category == ItemCategory.WindowsBuiltIn || IsSelf(p))
                 continue;
             var signals = Signals(p, runtime?.GetValueOrDefault(p.Id)).ToList();
             var score = Math.Min(100, signals.Sum(s => s.Points));
@@ -97,6 +97,10 @@ public static class AnomalyScorer
         var ext = Path.GetExtension(path.Replace('\\', '/'));
         return ext.Equals(".exe", StringComparison.OrdinalIgnoreCase) || ext.Equals(".dll", StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>부트다이어트 자신(로그온 때 check를 도는 예약 작업)은 점수에서 뺀다.</summary>
+    public static bool IsSelf(Product p) =>
+        p.Components.Any(c => c.ExecutablePath is { } path && Path.GetFileName(path.Replace('\\', '/')).Equals("bootdiet.exe", StringComparison.OrdinalIgnoreCase));
 
     public static bool IsAllPortsRule(Component c) =>
         c.Kind == ComponentKind.FirewallRule && c.Enabled && c.Detail is { } d && d.Contains("모든 포트", StringComparison.Ordinal);

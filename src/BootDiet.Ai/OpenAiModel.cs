@@ -63,7 +63,7 @@ public sealed class OpenAiModel : IAiModel
         catch (OperationCanceledException) { throw; }
         catch (Exception e)
         {
-            LastError = e.GetType().Name + ": " + e.Message.Split('\n')[0];
+            LastError = AiModels.Short(e);
             return null;
         }
     }
