@@ -1,0 +1,186 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BootDiet.App.ViewModels"
+             x:Class="BootDiet.App.Views.PreviewView"
+             x:DataType="vm:PreviewViewModel">
+  <!-- G2 미리보기·적용. 디자인 Preview_v05: 왼쪽 바뀌는 항목(체크), 오른쪽 줄어드는 메모리·외부 포트 + 주황 버튼. -->
+  <Grid Margin="56,48,56,40" RowDefinitions="Auto,*">
+    <StackPanel Spacing="12" Margin="0,0,0,36">
+      <Button Classes="quiet" Padding="0" FontSize="14" Content="← 제품" HorizontalAlignment="Left"
+              Command="{Binding Main.GoToCommand}" CommandParameter="products" />
+      <TextBlock Classes="h1" Text="이렇게 바뀌어요" IsVisible="{Binding !IsDone}" />
+      <TextBlock Classes="h1" Text="{Binding Result.Headline, FallbackValue=''}" IsVisible="{Binding IsDone}" />
+    </StackPanel>
+
+    <!-- 고른 제품이 없을 때 -->
+    <Border Grid.Row="1" Classes="card" IsVisible="{Binding IsEmpty}" VerticalAlignment="Top" MaxWidth="560" HorizontalAlignment="Left">
+      <StackPanel Spacing="20">
+        <TextBlock Classes="h2" Text="고른 제품이 없어요" />
+        <TextBlock Classes="muted" Text="제품 화면에서 사용 안 함·뱅킹 모드·제거를 고르면 여기에 보여요" TextWrapping="Wrap" />
+        <Button Classes="accent" Content="제품 고르기 →" HorizontalAlignment="Left"
+                Command="{Binding Main.GoToCommand}" CommandParameter="products" />
+      </StackPanel>
+    </Border>
+
+    <!-- 미리보기 -->
+    <Grid Grid.Row="1" ColumnDefinitions="*,32,340" IsVisible="{Binding HasRows}">
+      <Border Classes="card" Padding="16,16,16,20" IsVisible="{Binding !IsDone}" VerticalAlignment="Top" MaxHeight="{Binding $parent[Grid].Bounds.Height}">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <Grid ColumnDefinitions="*,Auto" Margin="16,16,8,12">
+            <TextBlock Classes="h2" Text="{Binding Title}" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
+              <Button Classes="link" Content="모두 빼기" Command="{Binding SetAllCommand}" CommandParameter="{x:False}" IsEnabled="{Binding IsReady}" />
+              <Button Classes="link" Content="모두 넣기" Command="{Binding SetAllCommand}" CommandParameter="{x:True}" IsEnabled="{Binding IsReady}" />
+            </StackPanel>
+          </Grid>
+          <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding Rows}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:PreviewRow">
+                  <Border MinHeight="60" Padding="16,6" ToolTip.Tip="{Binding Tip}">
+                    <Grid ColumnDefinitions="Auto,*,Auto,104" Opacity="{Binding Opacity}">
+                      <CheckBox IsChecked="{Binding IsOn}" VerticalAlignment="Center" MinWidth="0" Padding="0" Margin="0,0,14,0"
+                                IsEnabled="{Binding !$parent[UserControl].((vm:PreviewViewModel)DataContext).IsBusy}" />
+                      <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Text="{Binding Product}" FontWeight="SemiBold" FontSize="15" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Component}" Classes="muted small" TextTrimming="CharacterEllipsis" IsVisible="{Binding HasComponent}" />
+                      </StackPanel>
+                      <TextBlock Grid.Column="2" Text="{Binding Kind}" Classes="muted" VerticalAlignment="Center" Margin="16,0,0,0" />
+                      <TextBlock Grid.Column="3" Text="{Binding To}" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+          <TextBlock Grid.Row="2" Classes="muted" Margin="16,12,16,0" Text="{Binding SkippedText}" IsVisible="{Binding HasSkipped}"
+                     ToolTip.Tip="{Binding SkippedTip}" />
+        </Grid>
+      </Border>
+
+      <!-- 적용 결과 -->
+      <Panel IsVisible="{Binding IsDone}">
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled" DataContext="{Binding Result}">
+        <StackPanel Spacing="24" Margin="0,0,20,0" x:DataType="vm:ApplyResultViewModel">
+          <Grid ColumnDefinitions="*,24,*,24,*">
+            <Border Classes="card">
+              <StackPanel Spacing="14">
+                <TextBlock Classes="label" Text="바뀐 항목" />
+                <TextBlock Classes="big" Text="{Binding ChangedText}" />
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="card">
+              <StackPanel Spacing="14">
+                <TextBlock Classes="label" Text="이미 꺼져 있던 것" />
+                <TextBlock Classes="big" Text="{Binding AlreadyOffText}" />
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="4" Classes="card">
+              <StackPanel Spacing="14">
+                <TextBlock Classes="label" Text="못 바꾼 제품" />
+                <TextBlock Classes="big" Text="{Binding ProblemText}" />
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <Border Classes="card" IsVisible="{Binding HasProblems}">
+            <StackPanel Spacing="16">
+              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasSelfRepaired}">
+                <PathIcon Data="{StaticResource IconLock}" Width="16" Height="16" Foreground="{DynamicResource WarnText}" />
+                <TextBlock Classes="danger" Text="{Binding SelfRepairedText}" TextWrapping="Wrap" />
+              </StackPanel>
+              <ItemsControl ItemsSource="{Binding Problems}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ResultLine">
+                    <Grid ColumnDefinitions="220,*" Margin="0,8">
+                      <TextBlock Text="{Binding Product}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Text="{Binding Message}" Classes="muted" TextWrapping="Wrap" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <!-- 제거로 고른 제품: 제조사 제거 프로그램을 여기서 하나씩 연다 -->
+          <Border Classes="card" IsVisible="{Binding HasRemovals}">
+            <StackPanel Spacing="16">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="h2" Text="제거" />
+                <TextBlock Classes="muted" Text="꺼 두었어요. 지우려면 제조사 제거 창을 열어요 · 되돌리려면 다시 설치해야 해요" TextWrapping="Wrap" />
+              </StackPanel>
+              <ItemsControl ItemsSource="{Binding Removals}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:RemovalRow">
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,6">
+                      <StackPanel Spacing="2" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="15" />
+                        <TextBlock Text="{Binding Status}" Classes="muted small" IsVisible="{Binding Started}" />
+                      </StackPanel>
+                      <Button Grid.Column="1" Content="제거 창 열기" Command="{Binding StartCommand}" IsEnabled="{Binding CanStart}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+      </Panel>
+
+      <!-- 오른쪽: 바뀌는 숫자와 버튼 -->
+      <StackPanel Grid.Column="2" Spacing="24" VerticalAlignment="Top">
+        <Border Classes="card" Padding="28,32" IsVisible="{Binding !IsDone}">
+          <StackPanel Spacing="28">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="label" Text="줄어드는 메모리" />
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Classes="big" FontSize="44" Text="{Binding Memory}" />
+                <TextBlock Classes="unit" Text="MB" />
+              </StackPanel>
+            </StackPanel>
+            <StackPanel Spacing="10" ToolTip.Tip="{Binding PortsTip}">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <PathIcon Data="{StaticResource IconWarning}" Width="15" Height="15" Foreground="{DynamicResource WarnText}" />
+                <TextBlock Classes="danger" Text="외부 접속 포트" FontSize="14" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <TextBlock Classes="big" FontSize="44" Text="{Binding PortsBefore}" />
+                <TextBlock Text="→" FontSize="28" Foreground="{DynamicResource Line}" VerticalAlignment="Center" />
+                <TextBlock Classes="big" FontSize="44" Text="{Binding PortsAfter}" />
+              </StackPanel>
+            </StackPanel>
+            <TextBlock Classes="muted" Text="언제든 되돌릴 수 있어요" />
+          </StackPanel>
+        </Border>
+
+        <TextBlock Classes="muted small" Text="{Binding RemoveNote}" IsVisible="{Binding ShowRemoveNote}" TextWrapping="Wrap" Margin="8,0" />
+
+        <Button Classes="accent" MinHeight="56" FontSize="16" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                Content="{Binding ApplyLabel}" Command="{Binding ApplyCommand}" IsEnabled="{Binding CanApply}"
+                IsVisible="{Binding IsReady}" />
+
+        <!-- 바꾸는 중 -->
+        <Border Classes="card" Padding="28" IsVisible="{Binding IsBusy}">
+          <StackPanel Spacing="16">
+            <ProgressBar IsIndeterminate="True" Classes="bank" Foreground="{DynamicResource Accent}" />
+            <TextBlock Text="{Binding BusyText}" Classes="muted" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+
+        <!-- 바꾼 뒤 -->
+        <StackPanel Spacing="12" IsVisible="{Binding IsDone}">
+          <Button Classes="accent" MinHeight="56" FontSize="16" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                  Content="다시 스캔해서 전·후 보기" Command="{Binding Main.StartScanCommand}" />
+          <Button Classes="quiet" Content="이력 보기" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" MinHeight="44"
+                  Command="{Binding Main.GoToCommand}" CommandParameter="history" />
+        </StackPanel>
+
+        <Border Classes="badge warn" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" HorizontalAlignment="Left" Padding="14,8">
+          <TextBlock Text="{Binding Error}" TextWrapping="Wrap" FontSize="13" />
+        </Border>
+        <TextBlock Classes="muted small" Text="{Binding CannotChangeReason}" IsVisible="{Binding HasCannotChange}" Margin="8,0" TextWrapping="Wrap" />
+      </StackPanel>
+    </Grid>
+  </Grid>
+</UserControl>
