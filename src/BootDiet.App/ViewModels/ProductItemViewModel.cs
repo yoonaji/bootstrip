@@ -11,10 +11,13 @@ public sealed partial class ProductItemViewModel : ObservableObject
     {
         Product = product;
         Runtime = runtime;
-        Options = TreatmentOption.For(product.Category);
+        // 스스로 다시 켜지는 제품(AhnLab Safe Transaction, nProtect 등)은 끄기·뱅킹 모드가 듣지 않으니 유지·제거만.
+        Options = product.Verdict.CanDisable
+            ? TreatmentOption.For(product.Category)
+            : [TreatmentOption.Keep, TreatmentOption.Remove];
         Recommended = TreatmentOption.FromRecommendation(product.Verdict.Action);
         if (!Options.Contains(Recommended))
-            Recommended = TreatmentOption.Disable;
+            Recommended = Options.Contains(TreatmentOption.Disable) ? TreatmentOption.Disable : TreatmentOption.Keep;
         choice = Recommended;
 
         ComponentGroups = product.Components
@@ -55,6 +58,7 @@ public sealed partial class ProductItemViewModel : ObservableObject
     public string Reason => Product.Verdict.Reason;
     public RecommendedAction RecommendedAction => Product.Verdict.Action;
     public string RecommendationLabel => Labels.Recommendation(Product.Verdict.Action);
+    public bool IsRemoveRecommended => Product.Verdict.Action == RecommendedAction.Remove;
     public string SourceLabel => Product.Verdict.RuleId is { } rule
         ? $"{Labels.Source(Product.Verdict.Source)} · {rule}"
         : Labels.Source(Product.Verdict.Source);
@@ -98,6 +102,10 @@ public sealed partial class ProductItemViewModel : ObservableObject
     /// <summary>"유지"가 아니면 미리보기에 들어간다.</summary>
     public bool IsChanged => Choice.Level != TreatmentLevel.Keep;
     public bool DiffersFromRecommendation => Choice != Recommended;
+
+    /// <summary>상세의 "끌 수 없음" 상자에서 바로 제거를 고른다.</summary>
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void ChooseRemove() => Choice = TreatmentOption.Remove;
 
     public bool Matches(string? search, ItemCategory? category)
     {
