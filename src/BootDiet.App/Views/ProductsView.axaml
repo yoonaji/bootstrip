@@ -179,12 +179,12 @@
 
                   <!-- 취약점 확인(AI 기능 4): 금융 보안 모듈만 -->
                   <StackPanel Spacing="8" IsVisible="{Binding CanCheckVuln}">
-                    <Button Classes="quiet" Content="알려진 취약점 확인" HorizontalAlignment="Left" Command="{Binding CheckVulnCommand}" />
+                    <Button Classes="chip" Content="알려진 취약점 확인" HorizontalAlignment="Left" Command="{Binding CheckVulnCommand}" />
                     <StackPanel Spacing="4" IsVisible="{Binding HasVuln}">
                       <TextBlock Text="{Binding VulnTitle}" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" Classes.danger="{Binding VulnFound}" />
                       <ItemsControl ItemsSource="{Binding VulnLines}">
                         <ItemsControl.ItemTemplate>
-                          <DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" Classes="muted small" TextWrapping="Wrap" /></DataTemplate>
+                          <DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" Classes="muted small" TextWrapping="Wrap" Margin="0,0,0,6" /></DataTemplate>
                         </ItemsControl.ItemTemplate>
                       </ItemsControl>
                     </StackPanel>
@@ -199,7 +199,7 @@
                       </ItemsControl.ItemsPanel>
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="x:String">
-                          <Button Classes="quiet" Content="{Binding}" Margin="0,0,6,6" FontSize="12"
+                          <Button Classes="chip" Content="{Binding}" Margin="0,0,6,6"
                                   Command="{Binding #AskPanel.((vm:ProductItemViewModel)DataContext).UseSampleCommand}" CommandParameter="{Binding}" />
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>

@@ -246,6 +246,15 @@
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Foreground" Value="{DynamicResource MutedText}" />
   </Style>
+  <!-- 칩: 예시 질문, 취약점 확인처럼 누를 수 있는 작은 버튼. 연한 바탕 + 둥근 알약 -->
+  <Style Selector="Button.chip">
+    <Setter Property="Background" Value="{DynamicResource InfoBackground}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Padding" Value="14,7" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
   <Style Selector="Button.link">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
