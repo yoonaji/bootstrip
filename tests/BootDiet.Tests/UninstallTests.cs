@@ -109,6 +109,25 @@ public class UninstallTests
     }
 
     [Fact]
+    public void ComponentNamesMatchOnlyFromTheStartOfAWord()
+    {
+        // 11/3 집 PC: --only VP 가 AhnLab 드라이버 MeDVpDrv_SafeTransaction 까지 골랐다.
+        var ahnlab = Prod("ahnlab-st", "AhnLab Safe Transaction", ItemCategory.FinancialSecurity,
+            new Component { Name = "MeDVpDrv_SafeTransaction", Kind = ComponentKind.Driver });
+        var vp = Prod("kr-vpwallet", "VP 결제 모듈(ISP/페이북)", ItemCategory.FinancialSecurity,
+            new Component { Name = "VPWallet", Kind = ComponentKind.RunKey });
+        var crossex = Prod("crossex", "CrossEX", ItemCategory.FinancialSecurity,
+            new Component { Name = "CrossEXService", Kind = ComponentKind.RunKey });
+        var all = new[] { ahnlab, vp, crossex, IPinside };
+
+        Assert.Equal([vp], Uninstaller.Pick(all, "VP"));
+        Assert.Equal([crossex], Uninstaller.Pick(all, "CrossEXService"));
+        Assert.Equal([IPinside], Uninstaller.Pick(all, "lws"));      // ipinside-lws 의 '-' 뒤 낱말
+        Assert.Equal([ahnlab], Uninstaller.Pick(all, "SafeTransaction"));
+        Assert.Empty(Uninstaller.Pick(all, "  "));
+    }
+
+    [Fact]
     public void LeftoversAreTheComponentsStillFoundAfterRemoval()
     {
         var afterRemoval = new[] { Prod("ipinside", "IPinside", ItemCategory.FinancialSecurity, IPinside.Components[2]) };
