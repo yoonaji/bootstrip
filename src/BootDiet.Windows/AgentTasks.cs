@@ -16,6 +16,7 @@ public static class AgentTasks
     public const string Folder = @"\BootDiet";
     public const string CheckTask = "Check";
     public const string BankOffTask = "BankOff";
+    public const string LaunchTask = "BankLaunch";
 
     public static string FullPath(string name) => Folder + @"\" + name;
 
@@ -28,6 +29,52 @@ public static class AgentTasks
         Register(BankOffTask, exe, "bank off --quiet",
             "부트다이어트: 뱅킹 모드 시간이 끝나면 금융 보안 프로그램을 다시 끕니다.",
             $"<TimeTrigger><Enabled>true</Enabled><StartBoundary>{at.LocalDateTime:yyyy-MM-ddTHH:mm:ss}</StartBoundary></TimeTrigger>");
+
+    /// <summary>
+    /// 명령들을 지금 로그온한 사용자의 화면에서 일반 권한으로 실행한다(관리자 창에서 불려도).
+    /// 금융 모듈을 관리자 권한으로 띄우면 평소(로그온 때 일반 권한)와 달라져 은행 로그인이 깨졌다
+    /// (2026-11-03 집 PC, 국민은행 UBFE0141). 그래서 관리자 창에서는 일반 권한 예약 작업을 한 번 돌려 띄운다.
+    /// 작업은 bank off 때 지운다(실행 중인 작업을 바로 지우면 Windows가 끝내 버릴 수 있어서).
+    /// </summary>
+    public static void RunAsUser(IReadOnlyList<(string Exe, string Arguments)> commands)
+    {
+        // 작업의 동작(Exec)은 앞의 것이 끝나야 다음 것이 돌아서, 계속 떠 있는 모듈마다 작업을 따로 만든다.
+        Use(service =>
+        {
+            dynamic folder = EnsureFolder(service);
+            for (var i = 0; i < commands.Count; i++)
+            {
+                var (exe, arguments) = commands[i];
+                var xml = TaskXml("부트다이어트: 뱅킹 모드를 켤 때 금융 모듈을 일반 권한으로 띄웁니다.", "", "InteractiveToken", "LeastPrivilege", "PT0S", Exec(exe, arguments));
+                var name = $"{LaunchTask}{i + 1}";
+                folder.RegisterTask(name, xml, 6, null, null, 3); // TASK_LOGON_INTERACTIVE_TOKEN
+                dynamic task = folder.GetTask(name);
+                task.Run(null);
+            }
+            return 0;
+        });
+    }
+
+    /// <summary>RunAsUser가 만든 작업을 지운다(bank off). 작업을 지워도 이미 뜬 프로세스는 따로 끝낸다.</summary>
+    public static void DeleteLaunchTasks() => Use(service =>
+    {
+        dynamic folder;
+        try { folder = service.GetFolder(Folder); }
+        catch (Exception e) when (NotFound(e)) { return 0; }
+        var names = new List<string>();
+        foreach (dynamic task in folder.GetTasks(1)) // 1 = 숨김 작업 포함
+        {
+            string name = task.Name;
+            if (name.StartsWith(LaunchTask, StringComparison.OrdinalIgnoreCase))
+                names.Add(name);
+        }
+        foreach (var name in names)
+        {
+            try { folder.DeleteTask(name, 0); }
+            catch (Exception e) when (NotFound(e)) { }
+        }
+        return 0;
+    });
 
     /// <summary>없으면 조용히 넘어간다.</summary>
     public static void Delete(string name) => Use(service =>
@@ -80,45 +127,53 @@ public static class AgentTasks
 
     private static void Register(string name, string exe, string arguments, string description, string trigger, string logonType, int logonCode)
     {
-        var xml = $"""
-            <?xml version="1.0" encoding="UTF-16"?>
-            <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-              <RegistrationInfo><Author>BootDiet</Author><Description>{Esc(description)}</Description></RegistrationInfo>
-              <Triggers>{trigger}</Triggers>
-              <Principals>
-                <Principal id="Author">
-                  <UserId>{Esc(CurrentUser)}</UserId>
-                  <LogonType>{logonType}</LogonType>
-                  <RunLevel>HighestAvailable</RunLevel>
-                </Principal>
-              </Principals>
-              <Settings>
-                <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
-                <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
-                <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
-                <StartWhenAvailable>true</StartWhenAvailable>
-                <ExecutionTimeLimit>PT10M</ExecutionTimeLimit>
-                <Enabled>true</Enabled>
-              </Settings>
-              <Actions Context="Author">
-                <Exec>
-                  <Command>{Esc(exe)}</Command>
-                  <Arguments>{Esc(arguments)}</Arguments>
-                  <WorkingDirectory>{Esc(Path.GetDirectoryName(exe) ?? "")}</WorkingDirectory>
-                </Exec>
-              </Actions>
-            </Task>
-            """;
+        var xml = TaskXml(description, trigger, logonType, "HighestAvailable", "PT10M", Exec(exe, arguments));
         Use(service =>
         {
-            dynamic root = service.GetFolder(@"\");
-            dynamic folder;
-            try { folder = service.GetFolder(Folder); }
-            catch (Exception e) when (NotFound(e)) { folder = root.CreateFolder(Folder.TrimStart('\\')); }
+            dynamic folder = EnsureFolder(service);
             // 6 = TASK_CREATE_OR_UPDATE
             folder.RegisterTask(name, xml, 6, null, null, logonCode);
             return 0;
         });
+    }
+
+    private static string Exec(string exe, string arguments) => $"""
+        <Exec>
+          <Command>{Esc(exe)}</Command>
+          <Arguments>{Esc(arguments)}</Arguments>
+          <WorkingDirectory>{Esc(Path.GetDirectoryName(exe) ?? "")}</WorkingDirectory>
+        </Exec>
+        """;
+
+    private static string TaskXml(string description, string trigger, string logonType, string runLevel, string timeLimit, string actions) => $"""
+        <?xml version="1.0" encoding="UTF-16"?>
+        <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+          <RegistrationInfo><Author>BootDiet</Author><Description>{Esc(description)}</Description></RegistrationInfo>
+          <Triggers>{trigger}</Triggers>
+          <Principals>
+            <Principal id="Author">
+              <UserId>{Esc(CurrentUser)}</UserId>
+              <LogonType>{logonType}</LogonType>
+              <RunLevel>{runLevel}</RunLevel>
+            </Principal>
+          </Principals>
+          <Settings>
+            <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+            <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+            <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+            <StartWhenAvailable>true</StartWhenAvailable>
+            <AllowStartOnDemand>true</AllowStartOnDemand>
+            <ExecutionTimeLimit>{timeLimit}</ExecutionTimeLimit>
+            <Enabled>true</Enabled>
+          </Settings>
+          <Actions Context="Author">{actions}</Actions>
+        </Task>
+        """;
+
+    private static dynamic EnsureFolder(dynamic service)
+    {
+        try { return service.GetFolder(Folder); }
+        catch (Exception e) when (NotFound(e)) { return service.GetFolder(@"\").CreateFolder(Folder.TrimStart('\\')); }
     }
 
     private static string Esc(string text) => SecurityElement.Escape(text) ?? "";

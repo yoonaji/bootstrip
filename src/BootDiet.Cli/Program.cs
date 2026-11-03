@@ -822,11 +822,72 @@ static int BankOn(Dictionary<string, string?> options)
     return lines.Any(l => l.Outcome == KeepOutcome.Failed) ? 3 : 0;
 }
 
+/// <summary>
+/// 꺼 두었던 시작 앱을 띄운다. 금융 모듈은 평소처럼 일반 권한으로 떠야 한다: 관리자 창에서 그대로 띄웠더니
+/// 국민은행 로그인 때 입력값 암호화가 깨졌다(2026-11-03 집 PC, UBFE0141, restore 후 재부팅하니 정상).
+/// 그래서 관리자 권한이면 일반 권한 예약 작업으로 띄우고, 몇 초 뒤 실제로 떠 있는지 확인해 알려 준다.
+/// </summary>
 static void LaunchStartupApps(IEnumerable<PolicyItem> items)
 {
-    foreach (var item in items.Where(i => i.Action.Kind is ComponentKind.RunKey or ComponentKind.StartupFolder))
-        if (BankTools.Launch(item.Action) is { } error)
-            Console.WriteLine("  ! " + error);
+    if (!OperatingSystem.IsWindows())
+        return;
+    var apps = items.Where(i => i.Action.Kind is ComponentKind.RunKey or ComponentKind.StartupFolder).ToList();
+    if (apps.Count == 0)
+        return;
+    var commands = new List<(string Exe, string Arguments, PolicyItem Item)>();
+    foreach (var item in apps)
+    {
+        if (BankTools.LaunchCommand(item.Action) is not { } c)
+            continue;
+        if (c.Error is not null)
+            Console.WriteLine("  ! " + c.Error);
+        else
+            commands.Add((c.Exe, c.Arguments, item));
+    }
+    if (commands.Count == 0)
+        return;
+
+    var how = "일반 권한";
+    if (WindowsRegistry.IsAdmin())
+    {
+        try
+        {
+            AgentTasks.RunAsUser(commands.Select(c => (c.Exe, c.Arguments)).ToList());
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Console.WriteLine($"  ! 일반 권한으로 띄우지 못해 관리자 권한으로 띄웁니다({e.Message}). 은행 로그인이 안 되면 bank off 후 일반 PowerShell에서 bank on 하세요.");
+            how = "관리자 권한";
+            foreach (var c in commands)
+                if (BankTools.Launch(c.Item.Action) is { } error)
+                    Console.WriteLine("  ! " + error);
+        }
+    }
+    else
+    {
+        foreach (var c in commands)
+            if (BankTools.Launch(c.Item.Action) is { } error)
+                Console.WriteLine("  ! " + error);
+    }
+
+    // 실제로 떴는지 확인(최대 10초).
+    var waiting = commands.ToList();
+    for (var i = 0; i < 20 && waiting.Count > 0; i++)
+    {
+        Thread.Sleep(500);
+        waiting = waiting.Where(c =>
+        {
+            var running = BankTools.Running([c.Exe]);
+            var up = running.Count > 0;
+            foreach (var p in running)
+                p.Dispose();
+            return !up;
+        }).ToList();
+    }
+    foreach (var c in commands)
+        Console.WriteLine(waiting.Contains(c)
+            ? $"  ! 띄웠지만 10초 안에 보이지 않음: {c.Item.Action.ProductName} · {c.Item.Action.ComponentName}"
+            : $"  ✔ 실행 확인({how}): {c.Item.Action.ProductName} · {c.Item.Action.ComponentName}");
 }
 
 static int BankOff(Dictionary<string, string?> options)
@@ -881,6 +942,8 @@ static List<string> EndBank(DateTimeOffset now, string why, bool deleteTimer = t
     ActionFiles.SavePolicy(PolicyPath(), policy);
 
     // 정책을 먼저 저장하고 타이머는 마지막에 지운다.
+    try { AgentTasks.DeleteLaunchTasks(); }
+    catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     if (deleteTimer)
     {
         try { AgentTasks.Delete(AgentTasks.BankOffTask); }
