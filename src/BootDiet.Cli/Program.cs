@@ -596,6 +596,8 @@ static int RemoveCommand(string? name, Dictionary<string, string?> options)
     if (matches.Count == 0)
     {
         Console.WriteLine("  '설치된 앱' 목록에서 이 제품의 제거 프로그램을 찾지 못했습니다.");
+        if (product.Components.All(c => c.Kind is ComponentKind.Driver or ComponentKind.RootCertificate or ComponentKind.FirewallRule))
+            Console.WriteLine("  구성 요소가 드라이버·인증서·방화벽 규칙뿐이라, 프로그램은 이미 지워지고 흔적만 남았을 수 있습니다.");
         Console.WriteLine("  설정 → 앱 → 설치된 앱에서 직접 찾아 지우거나, bootdiet plan --only 로 끄기만 할 수 있습니다.");
         return 1;
     }
