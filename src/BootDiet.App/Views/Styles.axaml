@@ -212,6 +212,16 @@
   <Style Selector="Border.badge.warn > TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource WarnText}" />
   </Style>
+  <!-- AI 판정 배지: 테두리만 강조색, 글자는 강조색(색으로만 구분하지 않게 글자 "AI"가 들어간다) -->
+  <Style Selector="Border.badge.ai">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentSoft}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="Border.badge.ai > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource AccentText}" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
   <Style Selector="Border.badge.ok">
     <Setter Property="Background" Value="{DynamicResource OkBackground}" />
   </Style>

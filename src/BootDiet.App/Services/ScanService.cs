@@ -1,4 +1,5 @@
 using BootDiet.Core;
+using BootDiet.Core.Ai;
 using BootDiet.Core.Models;
 using BootDiet.Core.Rules;
 using BootDiet.Core.Runtime;
@@ -36,6 +37,12 @@ public sealed record ScanResult(
 {
     /// <summary>측정 원본. 정리 전·후 비교(ScanFigures)에 쓴다.</summary>
     public RuntimeSnapshot? Snapshot { get; init; }
+
+    /// <summary>제품별 이상 징후 점수(AI 기능 3, 규칙 기반). 키는 제품 Id.</summary>
+    public IReadOnlyDictionary<string, ProductRisk> Risks { get; init; } = new Dictionary<string, ProductRisk>();
+
+    /// <summary>AI 판정 결과 요약(예: "AI가 확인 38개 중 35개를 판정"). AI를 쓰지 않았으면 null.</summary>
+    public string? AiNote { get; init; }
 }
 
 /// <summary>스캔 진행 화면(S0)에 보여 줄 한 단계.</summary>
@@ -45,8 +52,11 @@ public sealed record ScanProgress(int Step, int TotalSteps, string Title, int Fo
 /// 수집 → Windows 자체 거르기 → 제품 묶기·판정 → 측정을 차례로 돌린다. bootdiet scan과 같은 순서다.
 /// PC를 바꾸지 않는다. 바꾸는 일은 bootdiet.exe apply가 맡는다(설계 탭 2장).
 /// </summary>
-public sealed class ScanService
+public sealed class ScanService(AiService? ai = null)
 {
+    /// <summary>AI 판정을 함께 할 때 쓰는 기능 묶음. null이면 규칙 판정만.</summary>
+    public AiService? Ai { get; } = ai;
+
     public Task<ScanResult> ScanAsync(ScanSource source, IProgress<ScanProgress>? progress = null, CancellationToken cancel = default) =>
         Task.Run(() => Scan(source, progress, cancel), cancel);
 
@@ -94,6 +104,29 @@ public sealed class ScanService
         var attached = runtime is null
             ? new Dictionary<string, ProductRuntime>()
             : RuntimeAttribution.Attach(products, runtime, windowsDir);
+        var risks = AnomalyScorer.Score(products, attached).ToDictionary(r => r.ProductId);
+
+        // AI 판정(AI 기능 1): 규칙에 없어 "확인"으로 남은 제품만. 키가 없으면 저장된 답만 쓴다.
+        string? aiNote = null;
+        if (Ai is { } ai && products.Any(AiJudge.IsTarget))
+        {
+            var targets = products.Count(AiJudge.IsTarget);
+            progress?.Report(new ScanProgress(steps, steps, ai.HasModel ? $"AI가 확인 항목 {targets}개 판정하기" : "저장된 AI 판정 불러오기", components.Count));
+            try
+            {
+                var judged = ai.JudgeAsync(products, attached, risks, cancel).GetAwaiter().GetResult();
+                products = judged.Products;
+                var accepted = judged.Decisions.Count(d => d.Accepted);
+                aiNote = judged.Decisions.Count == 0
+                    ? (ai.HasModel ? $"AI 판정을 받지 못했어요{(ai.LastError is { } err ? $" ({err})" : "")}" : ai.NoKeyHint)
+                    : $"AI({(ai.HasModel ? ai.ModelName : "저장된 답")})가 확인 항목 {targets}개 중 {accepted}개를 판정했어요. 확신이 낮은 {judged.Decisions.Count - accepted}개는 확인으로 남겼어요.";
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                warnings.Add($"AI 판정을 하지 못했습니다: {e.Message}");
+            }
+        }
+
         var summary = runtime is null ? null : MeasurementSummary.Build(products, attached, runtime);
 
         return new ScanResult(
@@ -107,6 +140,8 @@ public sealed class ScanService
             warnings)
         {
             Snapshot = runtime,
+            Risks = risks,
+            AiNote = aiNote,
         };
     }
 
