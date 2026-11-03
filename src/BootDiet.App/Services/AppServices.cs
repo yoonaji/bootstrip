@@ -23,6 +23,13 @@ public interface IBootDietRunner
 /// <summary>뱅킹 모드에서 시작 앱을 띄운다. 금융 모듈을 관리자 권한으로 띄우지 않으려고 화면(일반 권한)이 직접 띄운다.</summary>
 public interface IAppLauncher
 {
+    /// <summary>
+    /// 이 화면이 관리자 권한으로 돌고 있는가(관리자로 실행, 또는 UAC를 끈 관리자 계정).
+    /// 그렇다면 여기서 띄운 금융 모듈도 관리자로 떠서 은행 입력값 암호화가 깨진다(집 PC 국민은행 UBFE0141).
+    /// 이때는 bootdiet bank on이 일반 권한 예약 작업으로 띄우게 맡긴다.
+    /// </summary>
+    bool IsElevated { get; }
+
     /// <summary>띄우지 못한 것의 설명들.</summary>
     IReadOnlyList<string> Launch(IEnumerable<PlanAction> actions);
 }
@@ -145,6 +152,8 @@ public sealed class BootDietRunner : IBootDietRunner
 
 public sealed class WindowsAppLauncher : IAppLauncher
 {
+    public bool IsElevated => OperatingSystem.IsWindows() && BootDiet.Windows.WindowsRegistry.IsAdmin();
+
     public IReadOnlyList<string> Launch(IEnumerable<PlanAction> actions)
     {
         if (!OperatingSystem.IsWindows())

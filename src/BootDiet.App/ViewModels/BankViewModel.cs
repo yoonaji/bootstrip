@@ -86,21 +86,25 @@ public sealed partial class BankViewModel : ObservableObject
         OnPropertyChanged(nameof(OnLabel));
         try
         {
-            var code = await services.Runner.RunAsync(["bank", "on", "--minutes", Minutes.ToString(), "--no-launch"], RunMode.Elevated);
+            // 시작 앱은 반드시 일반 권한으로 띄운다. 화면이 일반 권한이면 화면이 직접, 관리자 권한이면 bootdiet이 일반 권한 예약 작업으로.
+            var launchHere = !services.Launcher.IsElevated;
+            var code = await services.Runner.RunAsync(
+                launchHere ? ["bank", "on", "--minutes", Minutes.ToString(), "--no-launch"] : ["bank", "on", "--minutes", Minutes.ToString()],
+                RunMode.Elevated);
             Reload();
             if (code is null)
             {
                 Message = "관리자 권한을 받지 못해 켜지 못했어요";
                 return;
             }
-            if (IsActive)
+            if (IsActive && launchHere)
             {
                 var ids = policy.Bank!.ProductIds.ToHashSet();
                 var errors = services.Launcher.Launch(policy.Products.Where(p => ids.Contains(p.ProductId)).SelectMany(p => p.Items).Select(i => i.Action));
                 if (errors.Count > 0)
                     Message = $"시작 앱 {errors.Count}개를 띄우지 못했어요";
             }
-            else
+            else if (!IsActive)
             {
                 Message = $"켜지 못했어요 (결과 코드 {code})";
             }

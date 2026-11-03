@@ -20,6 +20,8 @@ public sealed class FakeRunner(Func<IReadOnlyList<string>, int?> handler) : IBoo
 
 public sealed class FakeLauncher : IAppLauncher
 {
+    public bool IsElevated { get; set; }
+
     public List<PlanAction> Launched { get; } = [];
 
     public IReadOnlyList<string> Launch(IEnumerable<PlanAction> actions)
@@ -254,6 +256,21 @@ public class ChangeScreenTests
         await bank.TurnOffAsync();
         Assert.Equal(["bank", "off"], fake.Runner.Calls[^1].Args);
         Assert.True(bank.IsIdle);
+    }
+
+    [AvaloniaFact]
+    public async Task 화면이_관리자_권한이면_시작_앱을_직접_띄우지_않고_bootdiet에_맡긴다()
+    {
+        var fake = new FakeBootDiet();
+        fake.Launcher.IsElevated = true;
+        var vm = await Open(fake);
+        vm.GoTo("preview");
+        await ((PreviewViewModel)vm.Current).ApplyAsync();
+
+        await vm.Bank.TurnOnAsync();
+        Assert.Equal(["bank", "on", "--minutes", "30"], fake.Runner.Calls[^1].Args);
+        Assert.True(vm.Bank.IsActive);
+        Assert.Empty(fake.Launcher.Launched);
     }
 
     [AvaloniaFact]
