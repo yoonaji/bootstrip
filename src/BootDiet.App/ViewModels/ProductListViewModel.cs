@@ -10,12 +10,13 @@ namespace BootDiet.App.ViewModels;
 /// <summary>제품 목록(S2) + 상세 패널(S3). 판정별 칸으로 나누고, 처리 수준을 고르게 한다(FR-19, FR-30).</summary>
 public sealed partial class ProductListViewModel : ObservableObject
 {
+    // 디자인 v05: 묶음 이름은 짧게, 지울 것부터.
     private static readonly (RecommendedAction Action, string Title, string Description, bool Expanded)[] GroupOrder =
     [
-        (RecommendedAction.Disable, "사용 안 함 추천", "평소에 쓰지 않는데 자동으로 켜지는 것", true),
-        (RecommendedAction.BankingMode, "뱅킹 모드 추천", "은행·공공 사이트에서만 필요한 보안 모듈", true),
-        (RecommendedAction.Remove, "제거 권장", "깨졌거나 지워도 되는 것", true),
-        (RecommendedAction.Review, "확인 필요", "판단할 근거가 부족해 직접 봐야 하는 것", true),
+        (RecommendedAction.Remove, "제거", "깨졌거나 지워도 되는 것", true),
+        (RecommendedAction.Disable, "사용 안 함", "평소에 쓰지 않는데 자동으로 켜지는 것", true),
+        (RecommendedAction.BankingMode, "뱅킹 모드", "은행·공공 사이트에서만 필요한 보안 모듈", true),
+        (RecommendedAction.Review, "확인", "판단할 근거가 부족해 직접 봐야 하는 것", true),
         (RecommendedAction.Keep, "유지", "Windows·하드웨어·회사 보안 등 그대로 둘 것", false),
     ];
 
@@ -62,6 +63,9 @@ public sealed partial class ProductListViewModel : ObservableObject
             ? $"정리할 제품 {ChangedCount}개"
             : $"정리할 제품 {ChangedCount}개 (그중 이미 꺼진 제품 {ChangedAlreadyOffCount}개)";
 
+    /// <summary>아래 막대용 짧은 문구.</summary>
+    public string ChangeShort => ChangedCount == 0 ? "고른 제품 없음" : $"{ChangedCount}개 정리";
+
     partial void OnSearchTextChanged(string? value) => Refilter();
     partial void OnSelectedCategoryChanged(CategoryFilter value) => Refilter();
 
@@ -106,6 +110,7 @@ public sealed partial class ProductListViewModel : ObservableObject
             OnPropertyChanged(nameof(ChangedCount));
             OnPropertyChanged(nameof(ChangedAlreadyOffCount));
             OnPropertyChanged(nameof(ChangeSummary));
+            OnPropertyChanged(nameof(ChangeShort));
         }
     }
 }
@@ -126,11 +131,18 @@ public sealed partial class ProductGroupViewModel(RecommendedAction action, stri
     private bool isExpanded;
 
     public string Header => $"{Title} ({Items.Count})";
+    public string CountText => $"{Items.Count}";
+    public bool IsRemove => Action == RecommendedAction.Remove;
+    public bool IsDisable => Action == RecommendedAction.Disable;
+    public bool IsBanking => Action == RecommendedAction.BankingMode;
+    public bool IsReview => Action == RecommendedAction.Review;
+    public bool IsKeep => Action == RecommendedAction.Keep;
     public bool IsVisible => Items.Count > 0;
 
     public void NotifyCount()
     {
         OnPropertyChanged(nameof(Header));
+        OnPropertyChanged(nameof(CountText));
         OnPropertyChanged(nameof(IsVisible));
     }
 }

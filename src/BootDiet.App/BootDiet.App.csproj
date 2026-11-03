@@ -19,6 +19,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Pretendard (SIL OFL 1.1, Assets/Fonts/OFL.txt). 어느 PC에서나 같은 글꼴로 보이게 앱에 넣는다. -->
+    <AvaloniaResource Include="Assets\Fonts\*.otf" />
+    <None Include="Assets\Fonts\OFL.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\BootDiet.Core\BootDiet.Core.csproj" />
     <ProjectReference Include="..\BootDiet.Windows\BootDiet.Windows.csproj" />
   </ItemGroup>

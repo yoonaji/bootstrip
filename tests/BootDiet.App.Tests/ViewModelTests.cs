@@ -116,4 +116,42 @@ public class ViewModelTests
         Assert.False(s.Runtime);
         Assert.True(ScanSource.FromArgs([]).IsLive);
     }
+
+    [Fact]
+    public void 끌_수_없는_제품은_유지와_제거만_고를_수_있고_제거하기로_바로_제거를_고른다()
+    {
+        var r = Laptop();
+        var p = r.Products.First(x => x.Verdict.Action == RecommendedAction.Remove);
+        var locked = new ProductItemViewModel(p with { Verdict = p.Verdict with { CanDisable = false } }, null);
+        Assert.True(locked.CannotDisable);
+        Assert.Equal([TreatmentLevel.Keep, TreatmentLevel.Remove], locked.Options.Select(o => o.Level));
+
+        locked.Choice = TreatmentOption.Keep;
+        locked.ChooseRemoveCommand.Execute(null);
+        Assert.Equal(TreatmentLevel.Remove, locked.Choice.Level);
+
+        var d = r.Products.First(x => x.Verdict.Action == RecommendedAction.Disable);
+        var lockedDisable = new ProductItemViewModel(d with { Verdict = d.Verdict with { CanDisable = false } }, null);
+        Assert.Equal(TreatmentLevel.Keep, lockedDisable.Recommended.Level);
+    }
+
+    [Fact]
+    public void 요약은_금융_모듈_수를_제목으로_하고_판정_막대는_0인_칸을_뺀다()
+    {
+        var r = Laptop();
+        var list = new ProductListViewModel(r);
+        var main = new MainWindowViewModel(new ScanService(), new ScanSource(TestApp.Sample("laptop4-runtime.json")));
+        var s = new SummaryViewModel(r, list, main);
+        Assert.Equal($"금융 모듈 {r.Summary!.FinancialRunning}개가 늘 켜져 있어요", s.Headline);
+        Assert.All(s.Verdicts, v => Assert.True(v.Count > 0));
+        Assert.Equal(r.Products.Count, s.Verdicts.Sum(v => v.Count));
+        Assert.DoesNotContain("부팅", s.Headline);
+
+        var changes = new List<string?>();
+        s.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
+        var before = s.ChangeShort;
+        list.All.First(i => i.Choice.Level == TreatmentLevel.Keep).Choice = TreatmentOption.Disable;
+        Assert.Contains(nameof(SummaryViewModel.ChangeShort), changes);
+        Assert.NotEqual(before, s.ChangeShort);
+    }
 }

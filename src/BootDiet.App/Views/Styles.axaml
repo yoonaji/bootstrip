@@ -1,81 +1,189 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    화면 디자인 방향 v05 (디자인 캔버스 Main_v05 등).
+    살구색 한 가지 배경 + 반투명 둥근 카드 + 진한 주황은 누르는 버튼에만.
+    위험은 빨간 글씨 + 아이콘으로, 판정 색은 파스텔.
+    글자는 적게, 여백은 넓게: 카드 안쪽 32, 카드 사이 24, 모서리 20.
+  -->
   <Styles.Resources>
     <ResourceDictionary>
       <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Light">
-          <SolidColorBrush x:Key="NavBackground" Color="#F3F4F6" />
-          <SolidColorBrush x:Key="CardBackground" Color="#FFFFFF" />
-          <SolidColorBrush x:Key="CardBorder" Color="#E2E4E8" />
-          <SolidColorBrush x:Key="PageBackground" Color="#FAFAFB" />
-          <SolidColorBrush x:Key="MutedText" Color="#5F6670" />
-          <SolidColorBrush x:Key="RowHover" Color="#F1F4F9" />
-          <SolidColorBrush x:Key="RowSelected" Color="#E3ECFA" />
-          <SolidColorBrush x:Key="Accent" Color="#2563EB" />
-          <SolidColorBrush x:Key="WarnBackground" Color="#FDECEA" />
+          <LinearGradientBrush x:Key="PageBackground" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#FCF4EF" />
+            <GradientStop Offset="1" Color="#F8EAE2" />
+          </LinearGradientBrush>
+          <SolidColorBrush x:Key="NavBackground" Color="#8CFFFFFF" />
+          <SolidColorBrush x:Key="CardBackground" Color="#EBFFFFFF" />
+          <SolidColorBrush x:Key="CardBorder" Color="#B3FFFFFF" />
+          <SolidColorBrush x:Key="BarBackground" Color="#D9FFFFFF" />
+          <SolidColorBrush x:Key="Line" Color="#ECE7F0" />
+          <SolidColorBrush x:Key="Pill" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="Track" Color="#12403250" />
+          <SolidColorBrush x:Key="SubtleFill" Color="#F3F0F6" />
+          <SolidColorBrush x:Key="RowHover" Color="#80FFFFFF" />
+          <SolidColorBrush x:Key="RowSelected" Color="#FFFFFF" />
+
+          <SolidColorBrush x:Key="TextBrush" Color="#2D2A32" />
+          <SolidColorBrush x:Key="BodyText" Color="#5A5563" />
+          <SolidColorBrush x:Key="MutedText" Color="#6F6A78" />
+
+          <SolidColorBrush x:Key="Accent" Color="#C9511D" />
+          <SolidColorBrush x:Key="AccentText" Color="#A8431A" />
+          <SolidColorBrush x:Key="AccentSoft" Color="#E9A07A" />
+          <SolidColorBrush x:Key="ChangedEdge" Color="#F0B08E" />
+
           <SolidColorBrush x:Key="WarnText" Color="#B42318" />
-          <SolidColorBrush x:Key="InfoBackground" Color="#EEF2F7" />
-          <SolidColorBrush x:Key="InfoText" Color="#344054" />
-          <SolidColorBrush x:Key="OkBackground" Color="#E7F5EC" />
-          <SolidColorBrush x:Key="OkText" Color="#1E7A3D" />
+          <SolidColorBrush x:Key="WarnBackground" Color="#FCE8E6" />
+          <SolidColorBrush x:Key="InfoBackground" Color="#EEEAF3" />
+          <SolidColorBrush x:Key="InfoText" Color="#5A5563" />
+          <SolidColorBrush x:Key="OkBackground" Color="#DFF0E6" />
+          <SolidColorBrush x:Key="OkText" Color="#2F7D5B" />
+          <SolidColorBrush x:Key="BankBackground" Color="#E6E3EDF7" />
+          <SolidColorBrush x:Key="BankText" Color="#3A6EA5" />
+          <SolidColorBrush x:Key="BankButton" Color="#3A6EA5" />
+
+          <!-- 판정 막대·묶음 표시(파스텔) -->
+          <SolidColorBrush x:Key="VerdictRemove" Color="#F0A9A2" />
+          <SolidColorBrush x:Key="VerdictDisable" Color="#CFC3E3" />
+          <SolidColorBrush x:Key="VerdictBanking" Color="#A9C6E6" />
+          <SolidColorBrush x:Key="VerdictReview" Color="#F2CF8E" />
+          <SolidColorBrush x:Key="VerdictKeep" Color="#BFE3CF" />
+
+          <!-- Fluent의 강조 버튼을 주황으로 -->
+          <SolidColorBrush x:Key="AccentButtonBackground" Color="#C9511D" />
+          <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#B5481A" />
+          <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#A03F17" />
+          <SolidColorBrush x:Key="AccentButtonForeground" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#FFFFFF" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
-          <SolidColorBrush x:Key="NavBackground" Color="#1C1E22" />
-          <SolidColorBrush x:Key="CardBackground" Color="#24272C" />
-          <SolidColorBrush x:Key="CardBorder" Color="#363A41" />
-          <SolidColorBrush x:Key="PageBackground" Color="#18191C" />
-          <SolidColorBrush x:Key="MutedText" Color="#A3AAB4" />
-          <SolidColorBrush x:Key="RowHover" Color="#2B2F36" />
-          <SolidColorBrush x:Key="RowSelected" Color="#24364F" />
-          <SolidColorBrush x:Key="Accent" Color="#6EA1FF" />
-          <SolidColorBrush x:Key="WarnBackground" Color="#3D2220" />
-          <SolidColorBrush x:Key="WarnText" Color="#FF9C92" />
-          <SolidColorBrush x:Key="InfoBackground" Color="#2A2F37" />
-          <SolidColorBrush x:Key="InfoText" Color="#C9D1DC" />
-          <SolidColorBrush x:Key="OkBackground" Color="#1F3326" />
-          <SolidColorBrush x:Key="OkText" Color="#8AD9A5" />
+          <LinearGradientBrush x:Key="PageBackground" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#221F28" />
+            <GradientStop Offset="1" Color="#1C1A22" />
+          </LinearGradientBrush>
+          <SolidColorBrush x:Key="NavBackground" Color="#B3282530" />
+          <SolidColorBrush x:Key="CardBackground" Color="#EB302D3A" />
+          <SolidColorBrush x:Key="CardBorder" Color="#14FFFFFF" />
+          <SolidColorBrush x:Key="BarBackground" Color="#F21E1C26" />
+          <SolidColorBrush x:Key="Line" Color="#3A3646" />
+          <SolidColorBrush x:Key="Pill" Color="#46425A" />
+          <SolidColorBrush x:Key="Track" Color="#0FFFFFFF" />
+          <SolidColorBrush x:Key="SubtleFill" Color="#2A2734" />
+          <SolidColorBrush x:Key="RowHover" Color="#14FFFFFF" />
+          <SolidColorBrush x:Key="RowSelected" Color="#3A3648" />
+
+          <SolidColorBrush x:Key="TextBrush" Color="#F1EEF6" />
+          <SolidColorBrush x:Key="BodyText" Color="#C9C4D4" />
+          <SolidColorBrush x:Key="MutedText" Color="#A39EB0" />
+
+          <SolidColorBrush x:Key="Accent" Color="#FF8A4C" />
+          <SolidColorBrush x:Key="AccentText" Color="#FF9D66" />
+          <SolidColorBrush x:Key="AccentSoft" Color="#D99A7A" />
+          <SolidColorBrush x:Key="ChangedEdge" Color="#D99A7A" />
+
+          <SolidColorBrush x:Key="WarnText" Color="#FF8F80" />
+          <SolidColorBrush x:Key="WarnBackground" Color="#3D2526" />
+          <SolidColorBrush x:Key="InfoBackground" Color="#363244" />
+          <SolidColorBrush x:Key="InfoText" Color="#C9C4D4" />
+          <SolidColorBrush x:Key="OkBackground" Color="#1F3329" />
+          <SolidColorBrush x:Key="OkText" Color="#8CBFA4" />
+          <SolidColorBrush x:Key="BankBackground" Color="#E61E2E42" />
+          <SolidColorBrush x:Key="BankText" Color="#8DB8E8" />
+          <SolidColorBrush x:Key="BankButton" Color="#3A6EA5" />
+
+          <SolidColorBrush x:Key="VerdictRemove" Color="#D99088" />
+          <SolidColorBrush x:Key="VerdictDisable" Color="#A99CC4" />
+          <SolidColorBrush x:Key="VerdictBanking" Color="#7FA3CC" />
+          <SolidColorBrush x:Key="VerdictReview" Color="#D9B878" />
+          <SolidColorBrush x:Key="VerdictKeep" Color="#8CBFA4" />
+
+          <SolidColorBrush x:Key="AccentButtonBackground" Color="#FF8A4C" />
+          <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#FF9D66" />
+          <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#E67A40" />
+          <SolidColorBrush x:Key="AccentButtonForeground" Color="#2D2A32" />
+          <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#2D2A32" />
+          <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#2D2A32" />
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
+      <StreamGeometry x:Key="IconSummary">M3,3 H10 V12 H3 Z M14,3 H21 V8 H14 Z M14,12 H21 V21 H14 Z M3,16 H10 V21 H3 Z</StreamGeometry>
+      <StreamGeometry x:Key="IconProducts">M3,5 H5.5 V7.5 H3 Z M8,5.25 H21 V7.25 H8 Z M3,10.75 H5.5 V13.25 H3 Z M8,11 H21 V13 H8 Z M3,16.5 H5.5 V19 H3 Z M8,16.75 H21 V18.75 H8 Z</StreamGeometry>
+      <StreamGeometry x:Key="IconPreview">F1 M12,5 C7,5 3.3,8.6 2,12 C3.3,15.4 7,19 12,19 C17,19 20.7,15.4 22,12 C20.7,8.6 17,5 12,5 Z M12,7 C15.6,7 18.5,9.4 19.8,12 C18.5,14.6 15.6,17 12,17 C8.4,17 5.5,14.6 4.2,12 C5.5,9.4 8.4,7 12,7 Z M12,9 A3,3 0 1 1 12,15 A3,3 0 1 1 12,9 Z</StreamGeometry>
+      <StreamGeometry x:Key="IconHistory">F1 M12,3 A9,9 0 1 0 12,21 A9,9 0 1 0 12,3 Z M12,5 A7,7 0 1 1 12,19 A7,7 0 1 1 12,5 Z M11,7 H13 V11.4 L16.2,13.3 L15.2,15 L11,12.6 Z</StreamGeometry>
+      <StreamGeometry x:Key="IconWarning">F1 M12,2.5 L22.5,21 H1.5 Z M11,9 H13 V14.5 H11 Z M11,16.5 H13 V18.5 H11 Z</StreamGeometry>
+      <StreamGeometry x:Key="IconShield">M12,2 L20,5 V11.5 C20,16.5 16.6,20.6 12,22 C7.4,20.6 4,16.5 4,11.5 V5 Z</StreamGeometry>
+      <StreamGeometry x:Key="IconLock">F1 M7,10 V7.5 A5,5 0 0 1 17,7.5 V10 H18.5 A1.5,1.5 0 0 1 20,11.5 V20.5 A1.5,1.5 0 0 1 18.5,22 H5.5 A1.5,1.5 0 0 1 4,20.5 V11.5 A1.5,1.5 0 0 1 5.5,10 Z M9,10 H15 V7.5 A3,3 0 0 0 9,7.5 Z</StreamGeometry>
+      <StreamGeometry x:Key="IconClock">F1 M12,3 A9,9 0 1 0 12,21 A9,9 0 1 0 12,3 Z M12,5 A7,7 0 1 1 12,19 A7,7 0 1 1 12,5 Z M11,7 H13 V11.4 L16.2,13.3 L15.2,15 L11,12.6 Z</StreamGeometry>
+      <BoxShadows x:Key="CardShadow">0 8 24 0 #0F3C3250</BoxShadows>
+      <BoxShadows x:Key="PillShadow">0 2 8 0 #1A3C3250</BoxShadows>
     </ResourceDictionary>
   </Styles.Resources>
 
+  <!-- 글자 -->
   <Style Selector="TextBlock.h1">
-    <Setter Property="FontSize" Value="22" />
-    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FontSize" Value="32" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="LetterSpacing" Value="-0.9" />
   </Style>
   <Style Selector="TextBlock.h2">
+    <Setter Property="FontSize" Value="17" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style Selector="TextBlock.label">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Foreground" Value="{DynamicResource MutedText}" />
+  </Style>
+  <Style Selector="TextBlock.body">
     <Setter Property="FontSize" Value="15" />
-    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LineHeight" Value="25" />
+    <Setter Property="Foreground" Value="{DynamicResource BodyText}" />
   </Style>
   <Style Selector="TextBlock.muted">
     <Setter Property="Foreground" Value="{DynamicResource MutedText}" />
   </Style>
   <Style Selector="TextBlock.small">
-    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontSize" Value="13" />
   </Style>
   <Style Selector="TextBlock.big">
-    <Setter Property="FontSize" Value="30" />
+    <Setter Property="FontSize" Value="48" />
     <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="-1.4" />
+  </Style>
+  <Style Selector="TextBlock.unit">
+    <Setter Property="FontSize" Value="20" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Foreground" Value="{DynamicResource MutedText}" />
+    <Setter Property="Margin" Value="6,0,0,5" />
+    <Setter Property="VerticalAlignment" Value="Bottom" />
+  </Style>
+  <Style Selector="TextBlock.danger">
+    <Setter Property="Foreground" Value="{DynamicResource WarnText}" />
+    <Setter Property="FontWeight" Value="Bold" />
   </Style>
 
+  <!-- 카드 -->
   <Style Selector="Border.card">
     <Setter Property="Background" Value="{DynamicResource CardBackground}" />
     <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="8" />
-    <Setter Property="Padding" Value="16" />
+    <Setter Property="CornerRadius" Value="20" />
+    <Setter Property="Padding" Value="32" />
+    <Setter Property="BoxShadow" Value="{StaticResource CardShadow}" />
   </Style>
 
-  <!-- 배지: 메모리·포트·인증서 같은 짧은 숫자 -->
+  <!-- 배지: 짧은 숫자·상태. 둥근 알약 모양 -->
   <Style Selector="Border.badge">
     <Setter Property="Background" Value="{DynamicResource InfoBackground}" />
-    <Setter Property="CornerRadius" Value="4" />
-    <Setter Property="Padding" Value="6,1" />
-    <Setter Property="Margin" Value="0,0,4,0" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Padding" Value="10,3" />
+    <Setter Property="Margin" Value="0,0,6,0" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
   <Style Selector="Border.badge > TextBlock">
-    <Setter Property="FontSize" Value="11.5" />
+    <Setter Property="FontSize" Value="12" />
     <Setter Property="Foreground" Value="{DynamicResource InfoText}" />
   </Style>
   <Style Selector="Border.badge.warn">
@@ -91,25 +199,124 @@
     <Setter Property="Foreground" Value="{DynamicResource OkText}" />
   </Style>
 
+  <!-- 버튼: 모두 둥글게. 주 버튼(accent)은 크고 진하게 -->
+  <Style Selector="Button">
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Padding" Value="20,10" />
+  </Style>
+  <Style Selector="Button.accent">
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="MinHeight" Value="48" />
+    <Setter Property="Padding" Value="26,0" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.quiet">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource MutedText}" />
+  </Style>
+  <Style Selector="Button.link">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentText}" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style Selector="Button.bank">
+    <Setter Property="Background" Value="{DynamicResource BankButton}" />
+    <Setter Property="Foreground" Value="#FFFFFF" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="MinHeight" Value="42" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.bank:disabled /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BankButton}" />
+    <Setter Property="Foreground" Value="#FFFFFF" />
+    <Setter Property="Opacity" Value="0.55" />
+  </Style>
+
   <!-- 제품 목록의 한 줄 -->
   <Style Selector="Button.row">
     <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="3,0,0,0" />
+    <Setter Property="BorderBrush" Value="Transparent" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-    <Setter Property="Padding" Value="10,8" />
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="Margin" Value="0,1" />
+    <Setter Property="MinHeight" Value="54" />
+    <Setter Property="Padding" Value="16,0,14,0" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Margin" Value="0,2" />
+  </Style>
+  <Style Selector="Button.row.changed">
+    <Setter Property="BorderBrush" Value="{DynamicResource ChangedEdge}" />
   </Style>
   <Style Selector="Button.row:pointerover /template/ ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource RowHover}" />
   </Style>
   <Style Selector="Button.row.selected /template/ ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource RowSelected}" />
+    <Setter Property="BoxShadow" Value="{StaticResource PillShadow}" />
   </Style>
 
+  <!-- 목록 줄 안의 작은 선택(알약 드롭다운) -->
+  <Style Selector="ComboBox.pill">
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Background" Value="{DynamicResource SubtleFill}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="Padding" Value="14,0,8,0" />
+  </Style>
+
+  <!-- 세그먼트(상세의 처리 선택, 프리셋): 회색 바탕 위에 고른 칸만 흰 알약 -->
+  <Style Selector="ListBox.segment">
+    <Setter Property="Background" Value="{DynamicResource Track}" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Padding" Value="4" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+  </Style>
+  <Style Selector="ListBox.segment > ListBoxItem">
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="MinHeight" Value="38" />
+    <Setter Property="Padding" Value="16,0" />
+    <Setter Property="Margin" Value="1,0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource BodyText}" />
+  </Style>
+  <Style Selector="ListBox.segment > ListBoxItem:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource RowHover}" />
+  </Style>
+  <Style Selector="ListBox.segment > ListBoxItem:selected /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Pill}" />
+    <Setter Property="BoxShadow" Value="{StaticResource PillShadow}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+
+  <!-- 왼쪽 메뉴 -->
   <Style Selector="ListBox.nav > ListBoxItem">
-    <Setter Property="Padding" Value="14,10" />
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="Margin" Value="8,2" />
+    <Setter Property="Padding" Value="16,12" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Margin" Value="0,4" />
+    <Setter Property="Foreground" Value="{DynamicResource BodyText}" />
+  </Style>
+  <Style Selector="ListBox.nav > ListBoxItem:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource RowHover}" />
+  </Style>
+  <Style Selector="ListBox.nav > ListBoxItem:selected /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Pill}" />
+    <Setter Property="BoxShadow" Value="{StaticResource PillShadow}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style Selector="ListBox.nav > ListBoxItem:selected PathIcon">
+    <Setter Property="Foreground" Value="{DynamicResource AccentSoft}" />
   </Style>
 </Styles>

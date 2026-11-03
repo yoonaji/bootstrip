@@ -46,6 +46,14 @@ public class ScreenTests
         list.SelectCommand.Execute(list.All.First(i => i.Name.Contains("IPinside", StringComparison.OrdinalIgnoreCase)));
         Shot(window, $"products-{theme}");
 
+        // 끌 수 없는 제품(스스로 다시 켜지는 서비스)이 있으면 "끌 수 없음" 상자를 찍어 둔다.
+        // 노트북 표본에는 없어서, IPinside를 끌 수 없는 제품으로 바꿔 상세만 그려 본다(집 PC의 AhnLab·nProtect 경우).
+        var ip = list.All.First(i => i.Name.Contains("IPinside", StringComparison.OrdinalIgnoreCase));
+        var locked = list.All.FirstOrDefault(i => i.CannotDisable)
+            ?? new ProductItemViewModel(ip.Product with { Verdict = ip.Product.Verdict with { CanDisable = false } }, ip.Runtime);
+        list.SelectCommand.Execute(locked);
+        Shot(window, $"products-locked-{theme}");
+
         vm.GoTo("preview");
         Assert.IsType<PlaceholderViewModel>(vm.Current);
         window.Close();
