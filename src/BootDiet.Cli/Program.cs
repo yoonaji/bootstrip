@@ -14,6 +14,15 @@ const int SelfRepairSeconds = 8; // AhnLab 서비스는 2차 실험에서 5초 �
 var command = args.Length > 0 && !args[0].StartsWith("--") ? args[0].ToLowerInvariant() : "scan";
 var options = ParseArgs(args);
 
+// 모르는 옵션은 그냥 넘기지 않는다. 집 PC에서 "--dry-run\"(끝에 \)가 무시돼 미리보기 대신 실제 제거가 됐다.
+string[] knownOptions = ["after", "all", "before", "dry-run", "entry", "input", "json", "md", "minutes", "no-elevate", "no-launch",
+    "no-runtime", "no-scan", "no-wait", "notify", "only", "pause", "plan", "product", "quiet", "rules", "save", "silent", "snapshot", "yes"];
+if (options.Keys.FirstOrDefault(k => !knownOptions.Contains(k, StringComparer.OrdinalIgnoreCase)) is { } unknownOption)
+{
+    Console.Error.WriteLine($"모르는 옵션입니다: --{unknownOption}  (아무것도 하지 않았습니다. 철자나 끝에 붙은 글자를 확인해 주세요. 도움말: bootdiet help)");
+    return 2;
+}
+
 try
 {
 return command switch
