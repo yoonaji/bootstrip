@@ -1018,15 +1018,12 @@ static int CheckCommand(Dictionary<string, string?> options)
     if (!options.ContainsKey("no-scan") && LoadProducts(options) is { } products)
     {
         var financial = products.Where(p => p.Category == ItemCategory.FinancialSecurity).ToList();
-        var known = policy.KnownFinancial.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var managed = policy.Products.Select(p => p.ProductId).ToHashSet();
-        if (known.Count > 0)
-            foreach (var p in financial.Where(p => !known.Contains(p.Id) && !managed.Contains(p.Id)))
-            {
-                newProducts.Add(p.Name);
-                output.Add($"새 금융 보안 프로그램: {p.Name} — bootdiet plan --only \"{p.Name}\" 으로 확인하세요");
-            }
-        policy = policy with { KnownFinancial = known.Union(financial.Select(p => p.Id)).Order().ToList() };
+        (policy, var freshIds) = policy.SeeFinancial(financial.Select(p => p.Id));
+        foreach (var p in financial.Where(p => freshIds.Contains(p.Id)))
+        {
+            newProducts.Add(p.Name);
+            output.Add($"새 금융 보안 프로그램: {p.Name} — bootdiet plan --only \"{p.Name}\" 으로 확인하세요");
+        }
     }
 
     ActionFiles.SavePolicy(PolicyPath(), policy with { UpdatedAt = now });
