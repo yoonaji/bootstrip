@@ -15,6 +15,12 @@ public sealed record AiRequest(string Feature, string System, string User, JsonO
     public string Effort { get; init; } = "low";
 
     public int MaxTokens { get; init; } = 8000;
+
+    /// <summary>웹 검색 도구 호출 상한(비용 상한). null이면 모델에 맡김.</summary>
+    public int? MaxSearches { get; init; }
+
+    /// <summary>작은 모델로 충분한 일(웹 검색 결과 정리 등). 비용을 줄인다. BOOTDIET_SMALL_MODEL로 바꿀 수 있다.</summary>
+    public bool PreferSmallModel { get; init; }
 }
 
 /// <summary>

@@ -12,6 +12,10 @@ namespace BootDiet.Ai;
 public sealed class OpenAiModel : IAiModel
 {
     public const string DefaultModel = "gpt-5";
+    public const string DefaultSmallModel = "gpt-5-mini";
+
+    /// <summary>PreferSmallModel 요청에 쓰는 모델.</summary>
+    public string SmallName { get; }
 
     private readonly ResponsesClient client;
 
@@ -20,9 +24,10 @@ public sealed class OpenAiModel : IAiModel
     public string? LastError { get; private set; }
 
     /// <param name="endpoint">다른 주소(사내 프록시 등)를 쓸 때만. 없으면 OpenAI 기본 주소.</param>
-    public OpenAiModel(string apiKey, string? model = null, string? endpoint = null)
+    public OpenAiModel(string apiKey, string? model = null, string? endpoint = null, string? smallModel = null)
     {
         Name = string.IsNullOrWhiteSpace(model) ? DefaultModel : model.Trim();
+        SmallName = string.IsNullOrWhiteSpace(smallModel) ? DefaultSmallModel : smallModel.Trim();
         var options = new ResponsesClientOptions { NetworkTimeout = TimeSpan.FromMinutes(5) };
         if (!string.IsNullOrWhiteSpace(endpoint))
             options.Endpoint = new Uri(endpoint);
@@ -36,7 +41,7 @@ public sealed class OpenAiModel : IAiModel
         {
             var options = new CreateResponseOptions
             {
-                Model = Name,
+                Model = request.PreferSmallModel ? SmallName : Name,
                 Instructions = request.System,
                 MaxOutputTokenCount = request.MaxTokens,
                 ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ToEffort(request.Effort) },
@@ -48,7 +53,12 @@ public sealed class OpenAiModel : IAiModel
             };
             options.InputItems.Add(ResponseItem.CreateUserMessageItem(request.User));
             if (request.WebSearch)
-                options.Tools.Add(ResponseTool.CreateWebSearchTool());
+            {
+                // 검색 결과를 적게 가져오고(low), 검색 횟수에 상한을 둔다. 웹 검색 비용의 대부분이 여기서 나온다.
+                options.Tools.Add(ResponseTool.CreateWebSearchTool(searchContextSize: WebSearchToolContextSize.Low));
+                if (request.MaxSearches is { } max)
+                    options.MaxToolCallCount = max;
+            }
 
             ResponseResult response = await client.CreateResponseAsync(options, ct);
             var text = response.GetOutputText();

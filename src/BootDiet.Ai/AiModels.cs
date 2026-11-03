@@ -14,7 +14,7 @@ public static class AiModels
         if (found is not { } f)
             return null;
         var model = AiKey.FindModel();
-        return f.Provider == AiProvider.Anthropic ? new ClaudeModel(f.Key, model) : new OpenAiModel(f.Key, model, AiKey.FindValue("OPENAI_BASE_URL"));
+        return f.Provider == AiProvider.Anthropic ? new ClaudeModel(f.Key, model) : new OpenAiModel(f.Key, model, AiKey.FindValue("OPENAI_BASE_URL"), AiKey.FindValue("BOOTDIET_SMALL_MODEL"));
     }
 
     public static string? LastError(IAiModel model) => model switch

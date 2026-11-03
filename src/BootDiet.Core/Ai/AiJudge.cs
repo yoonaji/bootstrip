@@ -57,7 +57,7 @@ public sealed class AiJudge(IAiModel model, AiCache cache)
             ("confidence", Schema.Num())))));
 
     /// <summary>AI에 물을 대상: 규칙도 휴리스틱도 판정하지 못한 제품.</summary>
-    public static bool IsTarget(Product p) => p.Verdict.Source == VerdictSource.Default;
+    public static bool IsTarget(Product p) => p.Verdict.Source == VerdictSource.Default && !AnomalyScorer.IsSelf(p);
 
     public async Task<JudgeResult> JudgeAsync(
         IReadOnlyList<Product> products,

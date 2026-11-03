@@ -35,6 +35,8 @@ public sealed record VulnFinding(
 public sealed class VulnChecker(IAiModel model, AiCache cache)
 {
     public const string Feature = "cve";
+    public const int BatchSize = 6;
+    public const int SearchesPerProduct = 2;
 
     public const string SystemPrompt = """
         당신은 한국 금융·공공 보안 프로그램의 취약점을 확인하는 보안 분석가입니다.
@@ -44,6 +46,8 @@ public sealed class VulnChecker(IAiModel model, AiCache cache)
         - 확인할 수 있는 최신 버전
         status: vulnerable(설치된 버전이 알려진 취약점에 해당), outdated(취약점은 고쳐졌지만 더 새 버전이 있음),
         ok(알려진 문제 없음), unknown(정보를 찾지 못함 또는 버전 비교 불가).
+        검색은 제품당 한두 번만 하세요(KISA 보호나라 보안공지와 CVE를 함께 찾는 검색어를 쓰세요).
+        파일 버전이 "1, 0, 5, 9"처럼 쉼표로 적혀 있으면 1.0.5.9로 읽으세요. 파일 버전과 제품 버전 체계가 달라 비교할 수 없으면 unknown.
         추측으로 CVE 번호를 만들지 마세요. 찾은 근거 URL을 sources에 넣으세요. advice는 한국어 한 문장(무엇을 하면 되는지).
         as_of에는 오늘 기준 연-월(YYYY-MM)을 넣으세요.
         """;
@@ -80,8 +84,9 @@ public sealed class VulnChecker(IAiModel model, AiCache cache)
 
         if (!offline)
         {
-            // 웹 검색은 오래 걸리므로 5개씩 나눠 묻는다.
-            foreach (var batch in toAsk.Chunk(5))
+            // 웹 검색은 비싸다(집 PC 11개 첫 실행 약 0.5달러). 작은 모델, 낮은 노력, 검색 횟수 상한으로 줄이고,
+            // 결과는 월 단위로 캐시해 같은 달에는 다시 묻지 않는다.
+            foreach (var batch in toAsk.Chunk(BatchSize))
             {
                 var ids = batch.Select((p, i) => (p, id: $"p{i + 1}")).ToList();
                 var input = new JsonArray(ids.Select(x => (JsonNode)new JsonObject
@@ -96,8 +101,10 @@ public sealed class VulnChecker(IAiModel model, AiCache cache)
                 var reply = await model.AskAsync(new AiRequest(Feature, SystemPrompt, $"오늘은 {month}입니다. 확인할 제품(JSON):\n" + ProductBrief.Json(input), ResponseSchema)
                 {
                     WebSearch = true,
-                    Effort = "medium",
-                    MaxTokens = 16000,
+                    Effort = "low",
+                    MaxTokens = 10000,
+                    MaxSearches = batch.Length * SearchesPerProduct,
+                    PreferSmallModel = true,
                 }, ct);
                 if (reply is null)
                 {
