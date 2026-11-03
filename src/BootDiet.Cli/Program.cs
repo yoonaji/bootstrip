@@ -1014,6 +1014,7 @@ static int CheckCommand(Dictionary<string, string?> options)
     }
 
     // 새로 깔린 금융 보안 프로그램(FR-30). 처음 실행 때는 지금 있는 것을 기준으로 삼기만 한다.
+    var newProducts = new List<string>();
     if (!options.ContainsKey("no-scan") && LoadProducts(options) is { } products)
     {
         var financial = products.Where(p => p.Category == ItemCategory.FinancialSecurity).ToList();
@@ -1021,18 +1022,47 @@ static int CheckCommand(Dictionary<string, string?> options)
         var managed = policy.Products.Select(p => p.ProductId).ToHashSet();
         if (known.Count > 0)
             foreach (var p in financial.Where(p => !known.Contains(p.Id) && !managed.Contains(p.Id)))
+            {
+                newProducts.Add(p.Name);
                 output.Add($"새 금융 보안 프로그램: {p.Name} — bootdiet plan --only \"{p.Name}\" 으로 확인하세요");
+            }
         policy = policy with { KnownFinancial = known.Union(financial.Select(p => p.Id)).Order().ToList() };
     }
 
     ActionFiles.SavePolicy(PolicyPath(), policy with { UpdatedAt = now });
     if (output.Count == 0)
         output.Add($"이상 없음: 꺼 둔 제품 {policy.Products.Count}개가 그대로 꺼져 있습니다{(active is { Count: > 0 } ? " (뱅킹 모드 중인 제품 제외)" : "")}.");
+    // 창 없이 돈 자동 확인이 뭔가 바꿨거나 못 바꿨으면 화면에 알린다(FR-28). 손으로 돌릴 때는 창에 이미 보인다.
+    var notice = quiet || options.ContainsKey("notify") ? CheckNotice(acted, newProducts) : null;
+    if (notice is not null && SessionNotice.Show("부트다이어트", notice) is { } why)
+        output.Add($"(알림을 띄우지 못함: {why})");
+    else if (notice is not null)
+        output.Add("(화면에 알림을 띄움)");
     foreach (var line in output)
         Console.WriteLine(line);
     Log(output);
     Pause(options);
     return lines.Any(l => l.Outcome == KeepOutcome.Failed) ? 3 : 0;
+}
+
+/// <summary>사용자에게 보일 알림 글. 알릴 것이 없으면 null.</summary>
+static string? CheckNotice(IReadOnlyList<KeepLine> acted, IReadOnlyList<string> newProducts)
+{
+    static string Names(IEnumerable<KeepLine> ls) =>
+        string.Join(", ", ls.Select(l => l.Item.Action.ProductName).Distinct().Take(4));
+    var parts = new List<string>();
+    var again = acted.Where(l => l.Outcome == KeepOutcome.ReDisabled).ToList();
+    if (again.Count > 0)
+        parts.Add($"꺼 둔 프로그램이 다시 켜져 있어 다시 껐습니다({again.Count}개 항목): {Names(again)}");
+    var failed = acted.Where(l => l.Outcome is KeepOutcome.Failed or KeepOutcome.NeedsAdmin).ToList();
+    if (failed.Count > 0)
+        parts.Add($"다시 켜졌지만 끄지 못했습니다: {Names(failed)}");
+    if (newProducts.Count > 0)
+        parts.Add($"새 금융 보안 프로그램이 설치되었습니다: {string.Join(", ", newProducts.Take(4))}");
+    if (parts.Count == 0)
+        return null;
+    parts.Add("은행 업무가 필요하면 뱅킹 모드를 켜세요. 자세한 기록: " + Path.Combine(DataFolder(), "check.log"));
+    return string.Join("\n\n", parts);
 }
 
 static int AgentCommand(string sub, Dictionary<string, string?> options)
@@ -1182,6 +1212,7 @@ static int Help()
         bootdiet bank off                  뱅킹 모드 끝내기: 다시 끄고 떠 있는 프로세스 정리
         bootdiet bank status               뱅킹 모드 상태와 정책 보기
         bootdiet check                     꺼 둔 것이 다시 켜졌으면 다시 끄기, 새로 깔린 금융 모듈 알려 주기
+          --notify                         바꾼 것·새로 깔린 것이 있으면 화면에 알림 상자도 띄우기(자동 실행 때는 늘)
           --no-scan                        새 금융 모듈 찾기(전체 스캔)를 건너뛰기
         bootdiet agent install | remove    로그온할 때마다 check를 자동 실행하는 예약 작업 등록·삭제
         bootdiet agent status              등록 상태 보기
