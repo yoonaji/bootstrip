@@ -159,6 +159,21 @@ public class PolicyAndBankTests
     }
 
     [Fact]
+    public void NewFinancialProductsIncludeOnesRemovedAndInstalledAgain()
+    {
+        var policy = Policy.Empty(Now);
+        var (first, none) = policy.SeeFinancial(["ipinside", "crossex"]);
+        Assert.Empty(none);                                   // 처음에는 기준만 잡는다
+
+        var (afterRemove, _) = first.SeeFinancial(["crossex"]);   // T3: IPinside 제거
+        var (_, again) = afterRemove.SeeFinancial(["crossex", "ipinside", "kr-touchen"]);  // T4: 다시 설치
+        Assert.Equal(["ipinside", "kr-touchen"], again);
+
+        var (empty, _) = first.SeeFinancial([]);              // 다 지워도 첫 실행으로 돌아가지 않음
+        Assert.Equal(["ipinside"], empty.SeeFinancial(["ipinside"]).NewIds);
+    }
+
+    [Fact]
     public void PolicyFileRoundTrips()
     {
         var (_, policy) = Applied();

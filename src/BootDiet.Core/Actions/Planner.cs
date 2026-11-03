@@ -56,11 +56,34 @@ public static class Planner
     {
         if (selected is null)
             return p.Verdict.Action is RecommendedAction.Disable or RecommendedAction.BankingMode or RecommendedAction.Remove;
-        // 제품 이름, 규칙 ID, 구성 요소 이름(작업 관리자에 보이는 이름) 중 하나라도 맞으면 고른 것으로 본다.
-        return selected.Any(s =>
-            p.Name.Contains(s, StringComparison.OrdinalIgnoreCase)
-            || (p.Verdict.RuleId?.Equals(s, StringComparison.OrdinalIgnoreCase) ?? false)
-            || p.Components.Any(c => c.Name.Contains(s, StringComparison.OrdinalIgnoreCase)));
+        return selected.Any(s => Matches(p, s));
+    }
+
+    /// <summary>
+    /// --only 한 낱말이 이 제품을 가리키는지. 제품 이름은 일부만 맞아도, 규칙 ID는 똑같아야,
+    /// 구성 요소 이름(작업 관리자에 보이는 이름)은 낱말 첫머리부터 맞아야 한다.
+    /// 구성 요소 이름 가운데 글자만 겹치는 것(예: "VP"와 AhnLab 드라이버 MeDVpDrv)은 고르지 않는다.
+    /// </summary>
+    public static bool Matches(Product p, string name)
+    {
+        name = name.Trim();
+        if (name.Length == 0)
+            return false;
+        return p.Name.Contains(name, StringComparison.OrdinalIgnoreCase)
+            || (p.Verdict.RuleId?.Equals(name, StringComparison.OrdinalIgnoreCase) ?? false)
+            || p.Components.Any(c => StartsAtWord(c.Name, name));
+    }
+
+    /// <summary>text 안에서 name이 낱말 첫머리(맨 앞이거나 앞 글자가 글자·숫자가 아님)에서 시작하는 곳이 있는지.</summary>
+    private static bool StartsAtWord(string text, string name)
+    {
+        for (var i = text.IndexOf(name, StringComparison.OrdinalIgnoreCase); i >= 0;
+             i = text.IndexOf(name, i + 1, StringComparison.OrdinalIgnoreCase))
+        {
+            if (i == 0 || !char.IsLetterOrDigit(text[i - 1]))
+                return true;
+        }
+        return false;
     }
 
     private static string ProtectedReason(ItemCategory category) => category switch

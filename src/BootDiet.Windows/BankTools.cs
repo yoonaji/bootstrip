@@ -55,21 +55,31 @@ public static class BankTools
         }
     }
 
-    /// <summary>시작 앱 항목을 원래 명령줄 그대로 실행한다. 결과 문장(성공이면 null).</summary>
-    public static string? Launch(PlanAction a)
+    /// <summary>시작 앱 항목의 실행 파일과 인수. 시작 앱이 아니면 null, 실행 파일이 없으면 Error.</summary>
+    public static (string Exe, string Arguments, string? Error)? LaunchCommand(PlanAction a)
     {
         if (a.Kind is not (ComponentKind.RunKey or ComponentKind.StartupFolder))
             return null;
         var split = CommandLineParser.Split(a.Command);
         var exe = split?.Executable ?? a.ExecutablePath;
         if (exe is null || !File.Exists(exe))
-            return $"{a.ComponentName}: 실행 파일을 찾지 못해 띄우지 못했습니다";
+            return ("", "", $"{a.ComponentName}: 실행 파일을 찾지 못해 띄우지 못했습니다");
+        return (exe, split?.Arguments ?? "", null);
+    }
+
+    /// <summary>시작 앱 항목을 원래 명령줄 그대로, 이 프로세스와 같은 권한으로 실행한다. 결과 문장(성공이면 null).</summary>
+    public static string? Launch(PlanAction a)
+    {
+        if (LaunchCommand(a) is not { } c)
+            return null;
+        if (c.Error is not null)
+            return c.Error;
         try
         {
-            Process.Start(new ProcessStartInfo(exe, split?.Arguments ?? "")
+            Process.Start(new ProcessStartInfo(c.Exe, c.Arguments)
             {
                 UseShellExecute = true,
-                WorkingDirectory = Path.GetDirectoryName(exe) ?? "",
+                WorkingDirectory = Path.GetDirectoryName(c.Exe) ?? "",
             })?.Dispose();
             return null;
         }

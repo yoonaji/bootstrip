@@ -58,10 +58,7 @@ public static class Uninstaller
 
     /// <summary>제품 이름, 규칙 ID, 구성 요소 이름 중 하나라도 맞는 제품(plan --only와 같은 기준).</summary>
     public static IReadOnlyList<Product> Pick(IEnumerable<Product> products, string name) =>
-        products.Where(p =>
-            p.Name.Contains(name, StringComparison.OrdinalIgnoreCase)
-            || (p.Verdict.RuleId?.Equals(name, StringComparison.OrdinalIgnoreCase) ?? false)
-            || p.Components.Any(c => c.Name.Contains(name, StringComparison.OrdinalIgnoreCase))).ToList();
+        products.Where(p => Planner.Matches(p, name)).ToList();
 
     /// <summary>
     /// 제품에 해당하는 설치 항목. 1) 설치 폴더가 제품 실행 파일 폴더와 겹치면(가장 확실), 2) 이름이 서로 들어 있으면.

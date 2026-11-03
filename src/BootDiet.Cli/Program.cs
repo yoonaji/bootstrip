@@ -14,6 +14,15 @@ const int SelfRepairSeconds = 8; // AhnLab 서비스는 2차 실험에서 5초 �
 var command = args.Length > 0 && !args[0].StartsWith("--") ? args[0].ToLowerInvariant() : "scan";
 var options = ParseArgs(args);
 
+// 모르는 옵션은 그냥 넘기지 않는다. 집 PC에서 "--dry-run\"(끝에 \)가 무시돼 미리보기 대신 실제 제거가 됐다.
+string[] knownOptions = ["after", "all", "before", "dry-run", "entry", "input", "json", "md", "minutes", "no-elevate", "no-launch",
+    "no-runtime", "no-scan", "no-wait", "notify", "only", "pause", "plan", "product", "quiet", "rules", "save", "silent", "snapshot", "yes"];
+if (options.Keys.FirstOrDefault(k => !knownOptions.Contains(k, StringComparer.OrdinalIgnoreCase)) is { } unknownOption)
+{
+    Console.Error.WriteLine($"모르는 옵션입니다: --{unknownOption}  (아무것도 하지 않았습니다. 철자나 끝에 붙은 글자를 확인해 주세요. 도움말: bootdiet help)");
+    return 2;
+}
+
 try
 {
 return command switch
@@ -723,23 +732,40 @@ static string RunUninstaller(UninstallEntry entry, UninstallCommand command)
             UseShellExecute = true,
             WorkingDirectory = Path.GetDirectoryName(command.Executable) is { Length: > 0 } dir && Directory.Exists(dir) ? dir : Environment.SystemDirectory,
         });
-        // 제거 프로그램은 임시 폴더로 자기를 복사해 띄우고 바로 끝나는 경우가 많다(NSIS 등).
-        // 그래서 프로세스가 끝났는지보다 '설치된 앱' 항목이 사라졌는지를 기준으로 기다린다.
-        var deadline = DateTime.Now.AddMinutes(15);
-        while (DateTime.Now < deadline)
+    }
+    catch (System.ComponentModel.Win32Exception e) when (e.NativeErrorCode == 5 && OperatingSystem.IsWindows())
+    {
+        // AhnLab Safe Transaction은 자가 보호로 다른 프로그램이 제거 프로그램을 띄우는 것을 막는다(관리자여도).
+        // Windows 설정의 "설치된 앱"에서 누르면 허용되므로(11/3 집 PC) 그 화면을 열어 주고 기다린다.
+        Console.WriteLine($"  이 제품이 다른 프로그램이 제거 프로그램을 띄우는 것을 막았습니다(자가 보호).");
+        Console.WriteLine($"  Windows 설정의 '설치된 앱'을 엽니다. \"{entry.DisplayName}\"을(를) 찾아 [제거]를 눌러 주세요.");
+        Console.WriteLine("  '동작 중'이라고 나오면 브라우저와 증권 프로그램을 모두 닫고 [다시 시도]를 누르세요.");
+        try
         {
-            if (!UninstallCollector.Exists(entry))
-                return $"  ✔ {entry.DisplayName}: 제거됨";
-            if (!Console.IsInputRedirected && Console.KeyAvailable && Console.ReadKey(intercept: true).Key == ConsoleKey.Enter)
-                break;
-            Thread.Sleep(1000);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:appsfeatures") { UseShellExecute = true });
         }
-        return $"  ! {entry.DisplayName}: '설치된 앱'에 아직 남아 있습니다(제거를 취소했거나 재부팅 뒤 끝나는 제거일 수 있음)";
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return $"  ! {entry.DisplayName}: 제거 프로그램이 막혔습니다. 설정 → 앱 → 설치된 앱에서 직접 제거해 주세요.";
+        }
     }
     catch (System.ComponentModel.Win32Exception e)
     {
         return $"  ! {entry.DisplayName}: 제거 프로그램을 실행하지 못했습니다({e.Message})";
     }
+
+    // 제거 프로그램은 임시 폴더로 자기를 복사해 띄우고 바로 끝나는 경우가 많다(NSIS 등).
+    // 그래서 프로세스가 끝났는지보다 '설치된 앱' 항목이 사라졌는지를 기준으로 기다린다.
+    var deadline = DateTime.Now.AddMinutes(15);
+    while (DateTime.Now < deadline)
+    {
+        if (!UninstallCollector.Exists(entry))
+            return $"  ✔ {entry.DisplayName}: 제거됨";
+        if (!Console.IsInputRedirected && Console.KeyAvailable && Console.ReadKey(intercept: true).Key == ConsoleKey.Enter)
+            break;
+        Thread.Sleep(1000);
+    }
+    return $"  ! {entry.DisplayName}: '설치된 앱'에 아직 남아 있습니다(제거를 취소했거나 재부팅 뒤 끝나는 제거일 수 있음)";
 }
 
 // ───────── 7단계: 뱅킹 모드 · check · agent ─────────
@@ -822,11 +848,72 @@ static int BankOn(Dictionary<string, string?> options)
     return lines.Any(l => l.Outcome == KeepOutcome.Failed) ? 3 : 0;
 }
 
+/// <summary>
+/// 꺼 두었던 시작 앱을 띄운다. 금융 모듈은 평소처럼 일반 권한으로 떠야 한다: 관리자 창에서 그대로 띄웠더니
+/// 국민은행 로그인 때 입력값 암호화가 깨졌다(2026-11-03 집 PC, UBFE0141, restore 후 재부팅하니 정상).
+/// 그래서 관리자 권한이면 일반 권한 예약 작업으로 띄우고, 몇 초 뒤 실제로 떠 있는지 확인해 알려 준다.
+/// </summary>
 static void LaunchStartupApps(IEnumerable<PolicyItem> items)
 {
-    foreach (var item in items.Where(i => i.Action.Kind is ComponentKind.RunKey or ComponentKind.StartupFolder))
-        if (BankTools.Launch(item.Action) is { } error)
-            Console.WriteLine("  ! " + error);
+    if (!OperatingSystem.IsWindows())
+        return;
+    var apps = items.Where(i => i.Action.Kind is ComponentKind.RunKey or ComponentKind.StartupFolder).ToList();
+    if (apps.Count == 0)
+        return;
+    var commands = new List<(string Exe, string Arguments, PolicyItem Item)>();
+    foreach (var item in apps)
+    {
+        if (BankTools.LaunchCommand(item.Action) is not { } c)
+            continue;
+        if (c.Error is not null)
+            Console.WriteLine("  ! " + c.Error);
+        else
+            commands.Add((c.Exe, c.Arguments, item));
+    }
+    if (commands.Count == 0)
+        return;
+
+    var how = "일반 권한";
+    if (WindowsRegistry.IsAdmin())
+    {
+        try
+        {
+            AgentTasks.RunAsUser(commands.Select(c => (c.Exe, c.Arguments)).ToList());
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Console.WriteLine($"  ! 일반 권한으로 띄우지 못해 관리자 권한으로 띄웁니다({e.Message}). 은행 로그인이 안 되면 bank off 후 일반 PowerShell에서 bank on 하세요.");
+            how = "관리자 권한";
+            foreach (var c in commands)
+                if (BankTools.Launch(c.Item.Action) is { } error)
+                    Console.WriteLine("  ! " + error);
+        }
+    }
+    else
+    {
+        foreach (var c in commands)
+            if (BankTools.Launch(c.Item.Action) is { } error)
+                Console.WriteLine("  ! " + error);
+    }
+
+    // 실제로 떴는지 확인(최대 10초).
+    var waiting = commands.ToList();
+    for (var i = 0; i < 20 && waiting.Count > 0; i++)
+    {
+        Thread.Sleep(500);
+        waiting = waiting.Where(c =>
+        {
+            var running = BankTools.Running([c.Exe]);
+            var up = running.Count > 0;
+            foreach (var p in running)
+                p.Dispose();
+            return !up;
+        }).ToList();
+    }
+    foreach (var c in commands)
+        Console.WriteLine(waiting.Contains(c)
+            ? $"  ! 띄웠지만 10초 안에 보이지 않음: {c.Item.Action.ProductName} · {c.Item.Action.ComponentName}"
+            : $"  ✔ 실행 확인({how}): {c.Item.Action.ProductName} · {c.Item.Action.ComponentName}");
 }
 
 static int BankOff(Dictionary<string, string?> options)
@@ -881,6 +968,8 @@ static List<string> EndBank(DateTimeOffset now, string why, bool deleteTimer = t
     ActionFiles.SavePolicy(PolicyPath(), policy);
 
     // 정책을 먼저 저장하고 타이머는 마지막에 지운다.
+    try { AgentTasks.DeleteLaunchTasks(); }
+    catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     if (deleteTimer)
     {
         try { AgentTasks.Delete(AgentTasks.BankOffTask); }
@@ -951,25 +1040,52 @@ static int CheckCommand(Dictionary<string, string?> options)
     }
 
     // 새로 깔린 금융 보안 프로그램(FR-30). 처음 실행 때는 지금 있는 것을 기준으로 삼기만 한다.
+    var newProducts = new List<string>();
     if (!options.ContainsKey("no-scan") && LoadProducts(options) is { } products)
     {
         var financial = products.Where(p => p.Category == ItemCategory.FinancialSecurity).ToList();
-        var known = policy.KnownFinancial.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var managed = policy.Products.Select(p => p.ProductId).ToHashSet();
-        if (known.Count > 0)
-            foreach (var p in financial.Where(p => !known.Contains(p.Id) && !managed.Contains(p.Id)))
-                output.Add($"새 금융 보안 프로그램: {p.Name} — bootdiet plan --only \"{p.Name}\" 으로 확인하세요");
-        policy = policy with { KnownFinancial = known.Union(financial.Select(p => p.Id)).Order().ToList() };
+        (policy, var freshIds) = policy.SeeFinancial(financial.Select(p => p.Id));
+        foreach (var p in financial.Where(p => freshIds.Contains(p.Id)))
+        {
+            newProducts.Add(p.Name);
+            output.Add($"새 금융 보안 프로그램: {p.Name} — bootdiet plan --only \"{p.Name}\" 으로 확인하세요");
+        }
     }
 
     ActionFiles.SavePolicy(PolicyPath(), policy with { UpdatedAt = now });
     if (output.Count == 0)
         output.Add($"이상 없음: 꺼 둔 제품 {policy.Products.Count}개가 그대로 꺼져 있습니다{(active is { Count: > 0 } ? " (뱅킹 모드 중인 제품 제외)" : "")}.");
+    // 창 없이 돈 자동 확인이 뭔가 바꿨거나 못 바꿨으면 화면에 알린다(FR-28). 손으로 돌릴 때는 창에 이미 보인다.
+    var notice = quiet || options.ContainsKey("notify") ? CheckNotice(acted, newProducts) : null;
+    if (notice is not null && SessionNotice.Show("부트다이어트", notice) is { } why)
+        output.Add($"(알림을 띄우지 못함: {why})");
+    else if (notice is not null)
+        output.Add("(화면에 알림을 띄움)");
     foreach (var line in output)
         Console.WriteLine(line);
     Log(output);
     Pause(options);
     return lines.Any(l => l.Outcome == KeepOutcome.Failed) ? 3 : 0;
+}
+
+/// <summary>사용자에게 보일 알림 글. 알릴 것이 없으면 null.</summary>
+static string? CheckNotice(IReadOnlyList<KeepLine> acted, IReadOnlyList<string> newProducts)
+{
+    static string Names(IEnumerable<KeepLine> ls) =>
+        string.Join(", ", ls.Select(l => l.Item.Action.ProductName).Distinct().Take(4));
+    var parts = new List<string>();
+    var again = acted.Where(l => l.Outcome == KeepOutcome.ReDisabled).ToList();
+    if (again.Count > 0)
+        parts.Add($"꺼 둔 프로그램이 다시 켜져 있어 다시 껐습니다({again.Count}개 항목): {Names(again)}");
+    var failed = acted.Where(l => l.Outcome is KeepOutcome.Failed or KeepOutcome.NeedsAdmin).ToList();
+    if (failed.Count > 0)
+        parts.Add($"다시 켜졌지만 끄지 못했습니다: {Names(failed)}");
+    if (newProducts.Count > 0)
+        parts.Add($"새 금융 보안 프로그램이 설치되었습니다: {string.Join(", ", newProducts.Take(4))}");
+    if (parts.Count == 0)
+        return null;
+    parts.Add("은행 업무가 필요하면 뱅킹 모드를 켜세요. 자세한 기록: " + Path.Combine(DataFolder(), "check.log"));
+    return string.Join("\n\n", parts);
 }
 
 static int AgentCommand(string sub, Dictionary<string, string?> options)
@@ -1119,6 +1235,7 @@ static int Help()
         bootdiet bank off                  뱅킹 모드 끝내기: 다시 끄고 떠 있는 프로세스 정리
         bootdiet bank status               뱅킹 모드 상태와 정책 보기
         bootdiet check                     꺼 둔 것이 다시 켜졌으면 다시 끄기, 새로 깔린 금융 모듈 알려 주기
+          --notify                         바꾼 것·새로 깔린 것이 있으면 화면에 알림 상자도 띄우기(자동 실행 때는 늘)
           --no-scan                        새 금융 모듈 찾기(전체 스캔)를 건너뛰기
         bootdiet agent install | remove    로그온할 때마다 check를 자동 실행하는 예약 작업 등록·삭제
         bootdiet agent status              등록 상태 보기
