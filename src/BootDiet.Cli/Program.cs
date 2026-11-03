@@ -732,23 +732,40 @@ static string RunUninstaller(UninstallEntry entry, UninstallCommand command)
             UseShellExecute = true,
             WorkingDirectory = Path.GetDirectoryName(command.Executable) is { Length: > 0 } dir && Directory.Exists(dir) ? dir : Environment.SystemDirectory,
         });
-        // 제거 프로그램은 임시 폴더로 자기를 복사해 띄우고 바로 끝나는 경우가 많다(NSIS 등).
-        // 그래서 프로세스가 끝났는지보다 '설치된 앱' 항목이 사라졌는지를 기준으로 기다린다.
-        var deadline = DateTime.Now.AddMinutes(15);
-        while (DateTime.Now < deadline)
+    }
+    catch (System.ComponentModel.Win32Exception e) when (e.NativeErrorCode == 5 && OperatingSystem.IsWindows())
+    {
+        // AhnLab Safe Transaction은 자가 보호로 다른 프로그램이 제거 프로그램을 띄우는 것을 막는다(관리자여도).
+        // Windows 설정의 "설치된 앱"에서 누르면 허용되므로(11/3 집 PC) 그 화면을 열어 주고 기다린다.
+        Console.WriteLine($"  이 제품이 다른 프로그램이 제거 프로그램을 띄우는 것을 막았습니다(자가 보호).");
+        Console.WriteLine($"  Windows 설정의 '설치된 앱'을 엽니다. \"{entry.DisplayName}\"을(를) 찾아 [제거]를 눌러 주세요.");
+        Console.WriteLine("  '동작 중'이라고 나오면 브라우저와 증권 프로그램을 모두 닫고 [다시 시도]를 누르세요.");
+        try
         {
-            if (!UninstallCollector.Exists(entry))
-                return $"  ✔ {entry.DisplayName}: 제거됨";
-            if (!Console.IsInputRedirected && Console.KeyAvailable && Console.ReadKey(intercept: true).Key == ConsoleKey.Enter)
-                break;
-            Thread.Sleep(1000);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:appsfeatures") { UseShellExecute = true });
         }
-        return $"  ! {entry.DisplayName}: '설치된 앱'에 아직 남아 있습니다(제거를 취소했거나 재부팅 뒤 끝나는 제거일 수 있음)";
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return $"  ! {entry.DisplayName}: 제거 프로그램이 막혔습니다. 설정 → 앱 → 설치된 앱에서 직접 제거해 주세요.";
+        }
     }
     catch (System.ComponentModel.Win32Exception e)
     {
         return $"  ! {entry.DisplayName}: 제거 프로그램을 실행하지 못했습니다({e.Message})";
     }
+
+    // 제거 프로그램은 임시 폴더로 자기를 복사해 띄우고 바로 끝나는 경우가 많다(NSIS 등).
+    // 그래서 프로세스가 끝났는지보다 '설치된 앱' 항목이 사라졌는지를 기준으로 기다린다.
+    var deadline = DateTime.Now.AddMinutes(15);
+    while (DateTime.Now < deadline)
+    {
+        if (!UninstallCollector.Exists(entry))
+            return $"  ✔ {entry.DisplayName}: 제거됨";
+        if (!Console.IsInputRedirected && Console.KeyAvailable && Console.ReadKey(intercept: true).Key == ConsoleKey.Enter)
+            break;
+        Thread.Sleep(1000);
+    }
+    return $"  ! {entry.DisplayName}: '설치된 앱'에 아직 남아 있습니다(제거를 취소했거나 재부팅 뒤 끝나는 제거일 수 있음)";
 }
 
 // ───────── 7단계: 뱅킹 모드 · check · agent ─────────
