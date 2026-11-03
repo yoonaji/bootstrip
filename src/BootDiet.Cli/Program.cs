@@ -15,8 +15,8 @@ var command = args.Length > 0 && !args[0].StartsWith("--") ? args[0].ToLowerInva
 var options = ParseArgs(args);
 
 // 모르는 옵션은 그냥 넘기지 않는다. 집 PC에서 "--dry-run\"(끝에 \)가 무시돼 미리보기 대신 실제 제거가 됐다.
-string[] knownOptions = ["after", "all", "before", "dry-run", "entry", "input", "json", "md", "minutes", "no-elevate", "no-launch",
-    "no-runtime", "no-scan", "no-wait", "notify", "only", "pause", "plan", "product", "quiet", "rules", "save", "silent", "snapshot", "yes"];
+string[] knownOptions = ["after", "all", "before", "cache", "dry-run", "entry", "input", "installed", "json", "md", "minutes", "no-elevate", "no-launch",
+    "no-runtime", "no-scan", "no-wait", "notify", "offline", "only", "pause", "plan", "preset", "product", "quiet", "rules", "save", "silent", "snapshot", "yes"];
 if (options.Keys.FirstOrDefault(k => !knownOptions.Contains(k, StringComparer.OrdinalIgnoreCase)) is { } unknownOption)
 {
     Console.Error.WriteLine($"모르는 옵션입니다: --{unknownOption}  (아무것도 하지 않았습니다. 철자나 끝에 붙은 글자를 확인해 주세요. 도움말: bootdiet help)");
@@ -38,6 +38,11 @@ return command switch
     "help" or "-h" or "/?" => Help(),
     "report" => ReportCommand(options),
     "remove" => RemoveCommand(args.Length > 1 && !args[1].StartsWith("--") ? args[1] : null, options),
+    "risk" => AiCommands.Risk(options),
+    "judge" => AiCommands.Judge(options),
+    "recommend" => AiCommands.Recommend(options),
+    "cve" => AiCommands.Cve(options),
+    "ask" => AiCommands.Ask(args, options),
     _ => Unknown(command),
 };
 }
@@ -1250,6 +1255,16 @@ static int Help()
           --before <파일>                  정리 전으로 쓸 scan --save 파일
           --after <파일>                   정리 뒤로 쓸 scan --save 파일(없으면 지금 스캔)
           --md <파일>                      결과를 마크다운 표로 저장(제안서용)
+
+        AI 기능 (PC를 바꾸지 않음. 키는 exe 옆 .env 파일에 OPENAI_API_KEY=키 한 줄. 키가 없으면 저장해 둔 답만 씀)
+        bootdiet risk                      이상 징후 점수: 서명·실행 위치·열린 포트·방화벽·인증서·남은 드라이버 (AI 없이 동작)
+        bootdiet judge                     규칙에 없어 "확인"으로 남은 제품을 AI가 판정(확신 낮으면 확인으로 둠)
+        bootdiet recommend                 설치된 프로그램·실행 중 프로세스로 쓰임새를 추정해 추천
+          --preset game|office|minimal     AI 없이 프리셋만 적용해 보기
+        bootdiet cve                       금융 보안 모듈의 알려진 취약점·구버전을 웹 검색으로 확인
+        bootdiet ask <제품> <질문>          제품에 대해 물어보기. 예: bootdiet ask IPinside 이거 지우면 뭐가 안 돼?
+          --offline                        AI에 묻지 않고 저장해 둔 답만 쓰기
+          --json <파일>                    (judge, recommend) 바뀐 판정을 제품 목록 파일로 저장
 
         회사 PC에서는 scan, plan, report, remove --dry-run만 쓰세요. apply, restore, test-item, bank, check, agent, remove는 설정을 바꿉니다.
         """);

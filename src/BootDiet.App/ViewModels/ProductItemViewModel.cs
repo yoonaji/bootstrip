@@ -1,16 +1,24 @@
+using BootDiet.App.Services;
+using BootDiet.Core.Ai;
 using BootDiet.Core.Models;
 using BootDiet.Core.Runtime;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace BootDiet.App.ViewModels;
 
 /// <summary>제품 목록(S2)의 한 줄이자 상세 패널(S3)의 내용.</summary>
 public sealed partial class ProductItemViewModel : ObservableObject
 {
-    public ProductItemViewModel(Product product, ProductRuntime? runtime)
+    private readonly AiService? ai;
+
+    public ProductItemViewModel(Product product, ProductRuntime? runtime, ProductRisk? risk = null, AiService? ai = null)
     {
         Product = product;
         Runtime = runtime;
+        Risk = risk;
+        this.ai = ai;
+        RiskLines = risk?.Signals.Select(s => $"+{s.Points}  {s.Label} · {ProductBrief.Mask(s.Evidence)}").ToList() ?? [];
         // 스스로 다시 켜지는 제품(AhnLab Safe Transaction, nProtect 등)은 끄기·뱅킹 모드가 듣지 않으니 유지·제거만.
         Options = product.Verdict.CanDisable
             ? TreatmentOption.For(product.Category)
@@ -89,6 +97,108 @@ public sealed partial class ProductItemViewModel : ObservableObject
     public IReadOnlyList<string> Processes { get; }
     public IReadOnlyList<string> Ports { get; }
 
+    // ── AI 판정(기능 1) · 이상 징후(기능 3) ──
+    public bool IsAiVerdict => Product.Verdict.Source == VerdictSource.Ai;
+    public ProductRisk? Risk { get; }
+    /// <summary>목록 배지는 "주의" 이상만(낮음까지 붙이면 배지가 너무 많아진다). 상세에는 신호를 모두 보여 준다.</summary>
+    public bool HasRiskBadge => Risk?.Level is RiskLevel.Caution or RiskLevel.High;
+    public bool IsSuspected => Risk?.Suspected == true;
+    public string RiskBadge => Risk is null ? "" : Risk.Suspected ? "악성 의심" : $"위험 {Risk.Score}";
+    public string RiskTitle => Risk is null ? "" : $"이상 징후 {Risk.Score}점 · {Risk.LevelLabel}";
+    public IReadOnlyList<string> RiskLines { get; }
+    public bool HasRisk => RiskLines.Count > 0;
+
+    // ── 물어보기(기능 5) · 취약점 확인(기능 4) ──
+    public bool CanAsk => ai is not null;
+    public bool CanCheckVuln => ai is not null && VulnChecker.IsTarget(Product);
+    public string AiHint => ai is { HasModel: false } a ? a.NoKeyHint : "";
+    public bool HasAiHint => ai is { HasModel: false };
+    public IReadOnlyList<string> SampleQuestions { get; } = ["이게 뭐예요?", "지우면 뭐가 안 돼요?", "위험한가요?"];
+
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(AskCommand))] private string? question;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasAnswer))] private string? answer;
+    [ObservableProperty] private IReadOnlyList<string> answerEvidence = [];
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(AskCommand))] private bool isAsking;
+    public bool HasAnswer => !string.IsNullOrEmpty(Answer);
+
+    [RelayCommand]
+    private void UseSample(string q)
+    {
+        Question = q;
+        if (AskCommand.CanExecute(null))
+            AskCommand.Execute(null);
+    }
+
+    private bool CanRunAsk() => ai is not null && !IsAsking && !string.IsNullOrWhiteSpace(Question);
+
+    [RelayCommand(CanExecute = nameof(CanRunAsk))]
+    private async Task AskAsync()
+    {
+        IsAsking = true;
+        Answer = "AI에게 묻는 중…";
+        AnswerEvidence = [];
+        try
+        {
+            var a = await ai!.AskAsync(Product, Question!, Runtime, Risk);
+            if (a is null)
+            {
+                Answer = ai.HasModel ? $"답을 받지 못했어요.{(ai.LastError is { } e ? $" ({e})" : "")}" : ai.NoKeyHint;
+                return;
+            }
+            Answer = a.Answer;
+            AnswerEvidence = a.Evidence.Select(e => $"{e.Label} — {e.Why}").ToList();
+        }
+        catch (Exception e)
+        {
+            Answer = $"답을 받지 못했어요. ({e.Message})";
+        }
+        finally
+        {
+            IsAsking = false;
+        }
+    }
+
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasVuln))] private string? vulnTitle;
+    [ObservableProperty] private IReadOnlyList<string> vulnLines = [];
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(CheckVulnCommand))] private bool isCheckingVuln;
+    [ObservableProperty] private bool vulnFound;
+    public bool HasVuln => VulnTitle is not null;
+
+    private bool CanRunVuln() => CanCheckVuln && !IsCheckingVuln;
+
+    [RelayCommand(CanExecute = nameof(CanRunVuln))]
+    private async Task CheckVulnAsync()
+    {
+        IsCheckingVuln = true;
+        VulnTitle = "공개된 취약점을 웹에서 찾는 중… (1~2분)";
+        VulnLines = [];
+        try
+        {
+            var f = (await ai!.CheckVulnAsync(Product)).FirstOrDefault();
+            if (f is null)
+            {
+                VulnTitle = ai.HasModel ? $"확인하지 못했어요.{(ai.LastError is { } e ? $" ({e})" : "")}" : ai.NoKeyHint;
+                return;
+            }
+            VulnFound = f.Status is "vulnerable" or "outdated";
+            VulnTitle = $"{f.StatusLabel} · 설치 {f.InstalledVersion ?? "?"}{(f.LatestVersion is null ? "" : $" / 최신 {f.LatestVersion}")} · {f.AsOf} 기준";
+            VulnLines =
+            [
+                .. f.Vulns.Select(v => $"{v.Id}: {v.Summary}{(v.FixedIn is null ? "" : $" (고친 버전 {v.FixedIn})")}"),
+                .. f.Advice.Length > 0 ? [f.Advice] : Array.Empty<string>(),
+                .. f.Sources.Take(2).Select(s => $"출처: {s}"),
+            ];
+        }
+        catch (Exception e)
+        {
+            VulnTitle = $"확인하지 못했어요. ({e.Message})";
+        }
+        finally
+        {
+            IsCheckingVuln = false;
+        }
+    }
+
     public IReadOnlyList<TreatmentOption> Options { get; }
     public TreatmentOption Recommended { get; }
 
@@ -104,7 +214,7 @@ public sealed partial class ProductItemViewModel : ObservableObject
     public bool DiffersFromRecommendation => Choice != Recommended;
 
     /// <summary>상세의 "끌 수 없음" 상자에서 바로 제거를 고른다.</summary>
-    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    [RelayCommand]
     private void ChooseRemove() => Choice = TreatmentOption.Remove;
 
     public bool Matches(string? search, ItemCategory? category)

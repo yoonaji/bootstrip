@@ -119,7 +119,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             var r = await scanner.ScanAsync(source, progress);
             Before = await LoadBeforeAsync(r);
             Result = r;
-            Products = new ProductListViewModel(r);
+            Products = new ProductListViewModel(r, scanner.Ai);
             Summary = new SummaryViewModel(r, Products, this, Before);
             Preview = new PreviewViewModel(r, Products, Services, this);
             History = new HistoryViewModel(Services, this);
@@ -294,6 +294,18 @@ public sealed partial class SummaryViewModel : ObservableObject
 
     public string ChangeSummary => products.ChangeSummary;
     public string ChangeShort => products.ChangeShort;
+
+    public ProductListViewModel Products => products;
+
+    /// <summary>AI 판정 요약과 이상 징후 요약. 요약 화면 판정 막대 아래 한 줄씩.</summary>
+    public string? AiNote => scan.AiNote;
+    public bool HasAiNote => scan.AiNote is not null;
+    public int RiskCount => scan.Risks.Values.Count(r => r.Level is BootDiet.Core.Ai.RiskLevel.Caution or BootDiet.Core.Ai.RiskLevel.High);
+    public int SuspectedCount => scan.Risks.Values.Count(r => r.Suspected);
+    public string RiskNote => SuspectedCount > 0
+        ? $"악성 의심 {SuspectedCount}개 · 이상 징후가 있는 제품 {RiskCount}개"
+        : $"이상 징후가 있는 제품 {RiskCount}개 (열린 포트, 모든 포트 방화벽, 출처 불명 인증서 등)";
+    public bool HasRiskNote => RiskCount > 0;
 
     /// <summary>화면에 늘 보일 알림(스캔 경고, 측정 한계).</summary>
     public IReadOnlyList<string> Notes =>

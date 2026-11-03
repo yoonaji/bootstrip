@@ -212,6 +212,16 @@
   <Style Selector="Border.badge.warn > TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource WarnText}" />
   </Style>
+  <!-- AI 판정 배지: 테두리만 강조색, 글자는 강조색(색으로만 구분하지 않게 글자 "AI"가 들어간다) -->
+  <Style Selector="Border.badge.ai">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentSoft}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="Border.badge.ai > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource AccentText}" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
   <Style Selector="Border.badge.ok">
     <Setter Property="Background" Value="{DynamicResource OkBackground}" />
   </Style>
@@ -235,6 +245,15 @@
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Foreground" Value="{DynamicResource MutedText}" />
+  </Style>
+  <!-- 칩: 예시 질문, 취약점 확인처럼 누를 수 있는 작은 버튼. 연한 바탕 + 둥근 알약 -->
+  <Style Selector="Button.chip">
+    <Setter Property="Background" Value="{DynamicResource InfoBackground}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Padding" Value="14,7" />
+    <Setter Property="FontSize" Value="13" />
   </Style>
   <Style Selector="Button.link">
     <Setter Property="Background" Value="Transparent" />

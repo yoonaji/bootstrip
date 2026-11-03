@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using BootDiet.App.Services;
+using BootDiet.Core.Ai;
 using BootDiet.Core.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -20,10 +21,15 @@ public sealed partial class ProductListViewModel : ObservableObject
         (RecommendedAction.Keep, "유지", "Windows·하드웨어·회사 보안 등 그대로 둘 것", false),
     ];
 
-    public ProductListViewModel(ScanResult scan)
+    private readonly ScanResult scan;
+    private readonly AiService? ai;
+
+    public ProductListViewModel(ScanResult scan, AiService? ai = null)
     {
+        this.scan = scan;
+        this.ai = ai;
         All = scan.Products
-            .Select(p => new ProductItemViewModel(p, scan.Runtime.GetValueOrDefault(p.Id)))
+            .Select(p => new ProductItemViewModel(p, scan.Runtime.GetValueOrDefault(p.Id), scan.Risks.GetValueOrDefault(p.Id), ai))
             .ToList();
         foreach (var item in All)
             item.PropertyChanged += OnItemChanged;
@@ -85,6 +91,87 @@ public sealed partial class ProductListViewModel : ObservableObject
     {
         foreach (var item in All)
             item.Choice = item.Recommended;
+    }
+
+    // ── 프리셋(AI 기능 2): 추천 · 게임 · 사무 · 최소 · AI 추천. 고른 값(Choice)만 바꾸고 판정은 그대로 둔다. ──
+    public IReadOnlyList<string> PresetNames { get; } = ["추천", "게임", "사무", "최소", "AI 추천"];
+
+    [ObservableProperty]
+    private int presetIndex;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPresetNote))]
+    private string? presetNote;
+
+    public bool HasPresetNote => !string.IsNullOrEmpty(PresetNote);
+
+    [ObservableProperty]
+    private bool isAdvising;
+
+    partial void OnPresetIndexChanged(int value)
+    {
+        switch (value)
+        {
+            case 1: ApplyPreset(Preset.Game); break;
+            case 2: ApplyPreset(Preset.Office); break;
+            case 3: ApplyPreset(Preset.Minimal); break;
+            case 4: _ = AdviseAsync(); break;
+            default:
+                ResetToRecommended();
+                PresetNote = null;
+                break;
+        }
+    }
+
+    public void ApplyPreset(Preset preset)
+    {
+        var changed = 0;
+        foreach (var item in All)
+        {
+            var target = Presets.Override(item.Product, preset) is { } o ? TreatmentOption.FromRecommendation(o.Action) : item.Recommended;
+            if (!item.Options.Contains(target))
+                target = item.Recommended;
+            if (target != item.Recommended)
+                changed++;
+            item.Choice = target;
+        }
+        PresetNote = $"{Presets.Label(preset)} 프리셋: 추천과 다르게 고른 제품 {changed}개";
+    }
+
+    /// <summary>설치된 프로그램·실행 중 프로세스로 쓰임새를 추정해 고른다(키가 없으면 저장된 답만).</summary>
+    public async Task AdviseAsync()
+    {
+        if (ai is null)
+        {
+            PresetNote = "AI를 쓸 수 없어요";
+            return;
+        }
+        IsAdvising = true;
+        PresetNote = "AI가 이 PC의 쓰임새를 추정하는 중…";
+        try
+        {
+            var advice = await Task.Run(() => ai.AdviseAsync(scan.Products, scan.Snapshot));
+            if (advice is null)
+            {
+                PresetNote = ai.HasModel ? $"AI 추천을 받지 못했어요{(ai.LastError is { } e ? $" ({e})" : "")}" : ai.NoKeyHint;
+                return;
+            }
+            var byId = advice.Products.ToDictionary(p => p.Id);
+            foreach (var item in All)
+            {
+                var target = byId.TryGetValue(item.Id, out var p) ? TreatmentOption.FromRecommendation(p.Verdict.Action) : item.Recommended;
+                item.Choice = item.Options.Contains(target) ? target : item.Recommended;
+            }
+            PresetNote = $"AI: {PurposeAdvisor.PurposeLabel(advice.Purpose)} PC로 보여요 (근거: {string.Join(", ", advice.Evidence.Take(4))}). 추천과 다르게 고른 제품 {advice.Changes.Count}개";
+        }
+        catch (Exception e)
+        {
+            PresetNote = $"AI 추천을 받지 못했어요 ({e.Message})";
+        }
+        finally
+        {
+            IsAdvising = false;
+        }
     }
 
     private void Refilter()
