@@ -75,6 +75,12 @@
                               <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="15" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,14,0"
                                          ToolTip.Tip="{Binding Reason}" />
                               <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
+                                <Border Classes="badge ai" IsVisible="{Binding IsAiVerdict}">
+                                  <TextBlock Text="AI" />
+                                </Border>
+                                <Border Classes="badge warn" IsVisible="{Binding HasRiskBadge}" ToolTip.Tip="{Binding RiskTitle}">
+                                  <TextBlock Text="{Binding RiskBadge}" />
+                                </Border>
                                 <Border Classes="badge warn" IsVisible="{Binding CannotDisable}">
                                   <TextBlock Text="끌 수 없음" />
                                 </Border>
@@ -117,11 +123,26 @@
                     <TextBlock Text="{Binding Name}" FontSize="22" FontWeight="Bold" LetterSpacing="-0.4" TextWrapping="Wrap" />
                     <StackPanel Orientation="Horizontal">
                       <Border Classes="badge" Classes.warn="{Binding IsRemoveRecommended}"><TextBlock Text="{Binding RecommendationLabel}" FontWeight="Bold" /></Border>
+                      <Border Classes="badge ai" IsVisible="{Binding IsAiVerdict}" ToolTip.Tip="규칙에 없는 제품이라 AI가 판정했어요. 적용 전에 확인해 주세요">
+                        <TextBlock Text="AI 판정" />
+                      </Border>
                       <TextBlock Text="{Binding VendorText}" Classes="muted small" VerticalAlignment="Center" />
                     </StackPanel>
                   </StackPanel>
 
                   <TextBlock Text="{Binding Reason}" Classes="body" TextWrapping="Wrap" />
+
+                  <StackPanel Spacing="6" IsVisible="{Binding HasRisk}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <PathIcon Data="{StaticResource IconWarning}" Width="15" Height="15" Foreground="{DynamicResource WarnText}" />
+                      <TextBlock Text="{Binding RiskTitle}" Classes="danger" FontSize="14" />
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding RiskLines}" Margin="23,0,0,0">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" Classes="muted small" TextWrapping="Wrap" /></DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
 
                   <StackPanel Spacing="6" IsVisible="{Binding HasExposedPorts}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -155,6 +176,50 @@
                               Command="{Binding ChooseRemoveCommand}" />
                     </StackPanel>
                   </Border>
+
+                  <!-- 취약점 확인(AI 기능 4): 금융 보안 모듈만 -->
+                  <StackPanel Spacing="8" IsVisible="{Binding CanCheckVuln}">
+                    <Button Classes="chip" Content="알려진 취약점 확인" HorizontalAlignment="Left" Command="{Binding CheckVulnCommand}" />
+                    <StackPanel Spacing="4" IsVisible="{Binding HasVuln}">
+                      <TextBlock Text="{Binding VulnTitle}" FontWeight="Bold" FontSize="13" TextWrapping="Wrap" Classes.danger="{Binding VulnFound}" />
+                      <ItemsControl ItemsSource="{Binding VulnLines}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" Classes="muted small" TextWrapping="Wrap" Margin="0,0,0,6" /></DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </StackPanel>
+
+                  <!-- 물어보기(AI 기능 5) -->
+                  <StackPanel x:Name="AskPanel" Spacing="10" IsVisible="{Binding CanAsk}">
+                    <TextBlock Text="물어보기" FontWeight="Bold" FontSize="14" />
+                    <ItemsControl ItemsSource="{Binding SampleQuestions}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                          <Button Classes="chip" Content="{Binding}" Margin="0,0,6,6"
+                                  Command="{Binding #AskPanel.((vm:ProductItemViewModel)DataContext).UseSampleCommand}" CommandParameter="{Binding}" />
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBox Text="{Binding Question}" Watermark="이 제품에 대해 물어보세요" MinHeight="40" CornerRadius="12" TextWrapping="Wrap" />
+                      <Button Grid.Column="1" Classes="accent" Content="묻기" MinHeight="40" Margin="8,0,0,0" Command="{Binding AskCommand}" />
+                    </Grid>
+                    <TextBlock Text="{Binding AiHint}" IsVisible="{Binding HasAiHint}" Classes="muted small" TextWrapping="Wrap" />
+                    <Border Background="{DynamicResource InfoBackground}" CornerRadius="14" Padding="16" IsVisible="{Binding HasAnswer}">
+                      <StackPanel Spacing="8">
+                        <TextBlock Text="{Binding Answer}" Classes="body" TextWrapping="Wrap" />
+                        <ItemsControl ItemsSource="{Binding AnswerEvidence}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String"><TextBlock Text="{Binding StringFormat='근거 · {0}'}" Classes="muted small" TextWrapping="Wrap" /></DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </Border>
+                  </StackPanel>
 
                   <StackPanel Spacing="6" IsVisible="{Binding HasRuntime}">
                     <ItemsControl ItemsSource="{Binding RuntimeLines}">

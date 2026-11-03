@@ -27,6 +27,7 @@
   <ItemGroup>
     <ProjectReference Include="..\BootDiet.Core\BootDiet.Core.csproj" />
     <ProjectReference Include="..\BootDiet.Windows\BootDiet.Windows.csproj" />
+    <ProjectReference Include="..\BootDiet.Ai\BootDiet.Ai.csproj" />
   </ItemGroup>
 
   <ItemGroup>

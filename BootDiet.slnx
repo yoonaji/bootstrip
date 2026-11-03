@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/BootDiet.App/BootDiet.App.csproj" />
+    <Project Path="src/BootDiet.Ai/BootDiet.Ai.csproj" />
     <Project Path="src/BootDiet.Cli/BootDiet.Cli.csproj" />
     <Project Path="src/BootDiet.Core/BootDiet.Core.csproj" />
     <Project Path="src/BootDiet.Windows/BootDiet.Windows.csproj" />

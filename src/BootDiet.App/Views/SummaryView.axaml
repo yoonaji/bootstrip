@@ -119,6 +119,19 @@
           </StackPanel>
         </Border>
 
+        <StackPanel Spacing="8" IsVisible="{Binding HasAiNote}">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <Border Classes="badge ai"><TextBlock Text="AI 판정" /></Border>
+            <TextBlock Text="{Binding AiNote}" Classes="muted" TextWrapping="Wrap" VerticalAlignment="Center" />
+          </StackPanel>
+        </StackPanel>
+        <Button Classes="quiet" Padding="0" IsVisible="{Binding HasRiskNote}" Command="{Binding Main.GoToCommand}" CommandParameter="products">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <PathIcon Data="{StaticResource IconWarning}" Width="16" Height="16" Foreground="{DynamicResource WarnText}" />
+            <TextBlock Text="{Binding RiskNote}" Foreground="{DynamicResource BodyText}" />
+          </StackPanel>
+        </Button>
+
         <StackPanel Orientation="Horizontal" Spacing="10">
           <PathIcon Data="{StaticResource IconClock}" Width="16" Height="16" Foreground="{DynamicResource MutedText}" />
           <TextBlock Text="{Binding BootLine}" Classes="muted" />
@@ -137,16 +150,14 @@
     <!-- 아래 고정 막대: 프리셋(G3) · 고른 개수 · 미리보기 -->
     <Border Grid.Row="1" Background="{DynamicResource BarBackground}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Padding="72,20">
       <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-        <ListBox Classes="segment" SelectedIndex="0" IsEnabled="False"
-                 ToolTip.Tip="게임·사무·최소 프리셋은 다음에 붙여요">
+        <ListBox Classes="segment" ItemsSource="{Binding Products.PresetNames}" SelectedIndex="{Binding Products.PresetIndex}"
+                 ToolTip.Tip="쓰임새에 맞춰 한 번에 고르기. AI 추천은 설치된 프로그램과 실행 중인 프로세스로 쓰임새를 추정해요">
           <ListBox.ItemsPanel>
             <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
           </ListBox.ItemsPanel>
-          <ListBoxItem Content="추천" />
-          <ListBoxItem Content="게임" />
-          <ListBoxItem Content="사무" />
-          <ListBoxItem Content="최소" />
         </ListBox>
+        <TextBlock Grid.Column="1" Text="{Binding Products.PresetNote}" IsVisible="{Binding Products.HasPresetNote}" Classes="muted small"
+                   TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center" Margin="20,0,20,0" />
         <TextBlock Grid.Column="2" Text="{Binding ChangeShort}" FontWeight="Bold" FontSize="15" VerticalAlignment="Center" Margin="0,0,24,0"
                    ToolTip.Tip="{Binding ChangeSummary}" />
         <Button Grid.Column="3" Classes="accent" Content="미리보기 →"
