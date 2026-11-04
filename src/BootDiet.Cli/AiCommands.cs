@@ -63,10 +63,39 @@ static class AiCommands
     static (IAiModel Model, bool Offline) Model(Dictionary<string, string?> options)
     {
         if (!options.ContainsKey("offline") && AiModels.Create() is { } ai)
-            return (ai, false);
+        {
+            if (AskConsent(options))
+                return (ai, false);
+            Console.WriteLine("(AI로 정보를 보내지 않고, 저장해 둔 답만 씁니다. 나중에 쓰려면 --agree 를 붙이세요.)");
+            return (new NoModel(), true);
+        }
         if (!options.ContainsKey("offline"))
             Console.WriteLine($"(API 키가 없어 AI에 묻지 않고, 저장해 둔 답만 씁니다. 키 넣는 법: exe 옆 .env 파일에 {AiKey.KeyName}=키)");
         return (new NoModel(), true);
+    }
+
+    /// <summary>
+    /// AI 전송 동의. 한 번 동의하면 %ProgramData%\BootDiet\ai-consent.txt에 남아 다시 묻지 않는다.
+    /// --agree면 묻지 않고 동의로 기록, 입력을 받을 수 없으면(파이프 등) 보내지 않는다.
+    /// </summary>
+    static bool AskConsent(Dictionary<string, string?> options)
+    {
+        var consent = options.GetValueOrDefault("consent-file") is { } f ? new Consent(f) : Consent.AiTransfer();
+        if (options.ContainsKey("agree"))
+        {
+            consent.Grant();
+            return true;
+        }
+        if (consent.IsGranted)
+            return true;
+        if (Console.IsInputRedirected)
+            return false;
+        Console.WriteLine($"\n[{Notices.AiTransferTitle}]\n{Notices.AiTransfer}\n");
+        Console.Write("보내고 AI를 쓸까요? (y/N) ");
+        var yes = Console.ReadLine()?.Trim().ToLowerInvariant() is "y" or "yes" or "예" or "네";
+        if (yes)
+            consent.Grant();
+        return yes;
     }
 
     static void Report(IAiModel model)

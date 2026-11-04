@@ -65,7 +65,8 @@ public static class ProductBrief
         }
         Put("path", c.ExecutablePath);
         Put("trigger", c.Trigger);
-        Put("detail", c.Detail);
+        // 루트 인증서 지문은 보내지 않는다(기관을 특정할 수 있음). 유효 기간만 남긴다.
+        Put("detail", c.Kind == ComponentKind.RootCertificate ? StripThumbprint(c.Detail) : c.Detail);
         Put("signer", c.Signer);
         Put("company", c.Company);
         Put("product", c.ProductName);
@@ -74,6 +75,9 @@ public static class ProductBrief
         if (c.FileExists == false) o["file_missing"] = true;
         return o;
     }
+
+    public static string? StripThumbprint(string? detail) =>
+        detail is null ? null : System.Text.RegularExpressions.Regex.Replace(detail, @"\s*·\s*지문\s*[0-9A-Fa-f]+", "");
 
     /// <summary>제품 하나를 대표하는 캐시 키 재료: 이름 + 첫 실행 파일 경로 + 서명 + 버전.</summary>
     public static string[] CacheParts(Product p)
