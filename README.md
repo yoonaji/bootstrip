@@ -123,6 +123,18 @@ dotnet publish src/BootDiet.Cli -c Release -r win-x64 --self-contained -p:Publis
 - 제거 프로그램이 끝나면('설치된 앱'에서 항목이 사라지면) 다시 스캔해서 남은 구성 요소(서비스·드라이버·인증서 등)를 보여 줍니다.
 - 제거 시험용: `bootdiet test-item add-installed`는 사용자 전용 시험 항목과 '설치된 앱' 항목을 만들고, 그 제거 명령은 이 두 항목만 지웁니다.
 
+## 사용 전 고지와 AI 전송
+
+- 이 프로그램은 이 PC의 시작 프로그램과 보안 모듈을 끄거나 지울 수 있습니다. 바꾸기 전에 미리보기에서 확인하고, 모든 변경은 기록되며 `restore`로 되돌립니다. 제거는 되돌리기 어려울 수 있습니다.
+- 은행·공공 사이트를 쓸 때는 뱅킹 모드를 켭니다. 보안 제품의 자기 보호는 우회하지 않습니다. 막히면 멈추고 Windows 설정으로 안내합니다.
+- GUI는 처음 열 때 위 고지를 띄우고, 확인해야 스캔합니다(`%ProgramData%\BootDiet\notice.txt`).
+- AI 기능은 처음 한 번 전송 동의를 받습니다. 동의 전에는 외부로 아무것도 보내지 않고 규칙 판정과 저장된 답만 씁니다. GUI는 첫 화면과 왼쪽 아래 "AI 사용" 버튼에서, CLI는 처음 물어보거나 `--agree`로 동의합니다. 기록은 `%ProgramData%\BootDiet\ai-consent.txt`이고, 지우면 다시 묻습니다.
+- 보내는 정보: 제품 이름·제조사·서명·버전, 실행 경로(사용자 이름은 `USER`로 가림), 루트 인증서 이름, 실행 중 프로세스·메모리·열린 포트. 보내지 않는 정보: PC 이름, 계정, 파일 내용, 인증서 지문. 받는 곳은 OpenAI(미국), Anthropic 키면 Anthropic(미국)입니다. 회사가 계약한 AI를 쓰려면 `OPENAI_BASE_URL`을 바꿉니다.
+
+## 라이선스
+
+[MIT](LICENSE). 있는 그대로 제공되며, 사용 결과에 대한 책임은 사용자에게 있습니다. 글꼴 Pretendard는 SIL Open Font License를 따릅니다(`src/BootDiet.App/Assets/Fonts/OFL.txt`).
+
 ## 다음 단계
 
 - 2단계 남은 것: 서명 유효성 검증(WinVerifyTrust). 수집기 7종(시작 앱·서비스·드라이버·예약 작업·루트 인증서·방화벽·스토어 앱)은 완료
