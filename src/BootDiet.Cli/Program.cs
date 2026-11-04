@@ -15,7 +15,7 @@ var command = args.Length > 0 && !args[0].StartsWith("--") ? args[0].ToLowerInva
 var options = ParseArgs(args);
 
 // 모르는 옵션은 그냥 넘기지 않는다. 집 PC에서 "--dry-run\"(끝에 \)가 무시돼 미리보기 대신 실제 제거가 됐다.
-string[] knownOptions = ["after", "all", "before", "cache", "dry-run", "entry", "input", "installed", "json", "md", "minutes", "no-elevate", "no-launch",
+string[] knownOptions = ["after", "agree", "all", "before", "cache", "consent-file", "dry-run", "entry", "input", "installed", "json", "max", "md", "minutes", "no-elevate", "no-launch",
     "no-runtime", "no-scan", "no-wait", "notify", "offline", "only", "pause", "plan", "preset", "product", "quiet", "rules", "save", "silent", "snapshot", "yes"];
 if (options.Keys.FirstOrDefault(k => !knownOptions.Contains(k, StringComparer.OrdinalIgnoreCase)) is { } unknownOption)
 {
@@ -40,6 +40,7 @@ return command switch
     "remove" => RemoveCommand(args.Length > 1 && !args[1].StartsWith("--") ? args[1] : null, options),
     "risk" => AiCommands.Risk(options),
     "judge" => AiCommands.Judge(options),
+    "eval-ai" => AiCommands.Eval(options),
     "recommend" => AiCommands.Recommend(options),
     "cve" => AiCommands.Cve(options),
     "ask" => AiCommands.Ask(args, options),
@@ -1261,9 +1262,12 @@ static int Help()
         bootdiet judge                     규칙에 없어 "확인"으로 남은 제품을 AI가 판정(확신 낮으면 확인으로 둠)
         bootdiet recommend                 설치된 프로그램·실행 중 프로세스로 쓰임새를 추정해 추천
           --preset game|office|minimal     AI 없이 프리셋만 적용해 보기
+        bootdiet eval-ai                   AI 판정 정확도: 규칙 판정을 가리고 AI에 물어 규칙과 비교(--max N, 기본 40, --md 파일)
         bootdiet cve                       금융 보안 모듈의 알려진 취약점·구버전을 웹 검색으로 확인
         bootdiet ask <제품> <질문>          제품에 대해 물어보기. 예: bootdiet ask IPinside 이거 지우면 뭐가 안 돼?
           --offline                        AI에 묻지 않고 저장해 둔 답만 쓰기
+          --agree                          AI 전송에 동의(처음 한 번 묻는 것을 건너뜀). 보내는 정보: 제품 이름·제조사·서명·버전·
+                                           실행 경로(사용자 이름 가림)·인증서 이름·프로세스·포트. PC 이름·계정·인증서 지문은 안 보냄
           --json <파일>                    (judge, recommend) 바뀐 판정을 제품 목록 파일로 저장
 
         회사 PC에서는 scan, plan, report, remove --dry-run만 쓰세요. apply, restore, test-item, bank, check, agent, remove는 설정을 바꿉니다.

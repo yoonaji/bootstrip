@@ -63,10 +63,39 @@ static class AiCommands
     static (IAiModel Model, bool Offline) Model(Dictionary<string, string?> options)
     {
         if (!options.ContainsKey("offline") && AiModels.Create() is { } ai)
-            return (ai, false);
+        {
+            if (AskConsent(options))
+                return (ai, false);
+            Console.WriteLine("(AI로 정보를 보내지 않고, 저장해 둔 답만 씁니다. 나중에 쓰려면 --agree 를 붙이세요.)");
+            return (new NoModel(), true);
+        }
         if (!options.ContainsKey("offline"))
             Console.WriteLine($"(API 키가 없어 AI에 묻지 않고, 저장해 둔 답만 씁니다. 키 넣는 법: exe 옆 .env 파일에 {AiKey.KeyName}=키)");
         return (new NoModel(), true);
+    }
+
+    /// <summary>
+    /// AI 전송 동의. 한 번 동의하면 %ProgramData%\BootDiet\ai-consent.txt에 남아 다시 묻지 않는다.
+    /// --agree면 묻지 않고 동의로 기록, 입력을 받을 수 없으면(파이프 등) 보내지 않는다.
+    /// </summary>
+    static bool AskConsent(Dictionary<string, string?> options)
+    {
+        var consent = options.GetValueOrDefault("consent-file") is { } f ? new Consent(f) : Consent.AiTransfer();
+        if (options.ContainsKey("agree"))
+        {
+            consent.Grant();
+            return true;
+        }
+        if (consent.IsGranted)
+            return true;
+        if (Console.IsInputRedirected)
+            return false;
+        Console.WriteLine($"\n[{Notices.AiTransferTitle}]\n{Notices.AiTransfer}\n");
+        Console.Write("보내고 AI를 쓸까요? (y/N) ");
+        var yes = Console.ReadLine()?.Trim().ToLowerInvariant() is "y" or "yes" or "예" or "네";
+        if (yes)
+            consent.Grant();
+        return yes;
     }
 
     static void Report(IAiModel model)
@@ -92,6 +121,62 @@ static class AiCommands
         }
         var counts = flagged.SelectMany(r => r.Signals).GroupBy(s => s.Label).Select(g => $"{g.Key} {g.Count()}");
         Console.WriteLine($"\n신호별 제품 수: {string.Join(", ", counts)}");
+        return 0;
+    }
+
+    // ───────── eval: AI 판정 정확도 (규칙 판정을 가리고 AI에 물은 뒤 비교) ─────────
+    public static int Eval(Dictionary<string, string?> options)
+    {
+        if (Load(options) is not { } ctx)
+            return 1;
+        var (model, offline) = Model(options);
+        if (offline)
+        {
+            Console.Error.WriteLine("정확도 평가는 AI에 직접 물어야 합니다. API 키와 전송 동의가 필요합니다(--offline 불가).");
+            return 1;
+        }
+        var max = int.TryParse(options.GetValueOrDefault("max"), out var m) && m > 0 ? m : AiEval.DefaultMax;
+        var sample = AiEval.Sample(ctx.Products, max);
+        if (sample.Count == 0)
+        {
+            Console.Error.WriteLine("규칙으로 판정된 제품이 없어 평가할 수 없습니다.");
+            return 1;
+        }
+        Console.WriteLine($"규칙으로 판정된 제품 {ctx.Products.Count(AiEval.IsCandidate)}개 중 {sample.Count}개의 규칙 판정을 가리고 {model.Name}에 묻습니다…");
+        var report = AiEval.RunAsync(model, sample, ctx.Attached).GetAwaiter().GetResult();
+        Report(model);
+
+        var lines = new List<string>
+        {
+            $"# AI 판정 정확도 평가 ({DateTime.Now:yyyy-MM-dd HH:mm}, {model.Name})",
+            "",
+            "규칙 DB가 판정한 제품의 판정을 가리고, 실제 AI 판정과 같은 입력으로 물은 뒤 규칙 판정을 정답으로 비교했습니다.",
+            "",
+            "| 지표 | 값 |",
+            "|---|---|",
+            $"| 평가 제품 | {report.Answered}개 (요청 {report.Sampled}, 실패 {report.Failed}) |",
+            $"| AI가 확신을 갖고 판정한 비율 (확신 {AiJudge.MinConfidence} 이상) | {report.Coverage:P0} ({report.AcceptedItems.Count}개) |",
+            $"| 분류 일치율 (판정한 것 중) | {report.CategoryAccuracy:P0} |",
+            $"| 처리 일치율 (판정한 것 중) | {report.ActionAccuracy:P0} |",
+            $"| 켜 둠/끔 방향 일치율 (판정한 것 중) | {report.DirectionAccuracy:P0} |",
+            $"| 위험한 오답 (규칙=유지인데 AI가 끄라고 함) | {report.DangerousCount}개 |",
+            $"| 사람에게 넘긴 것의 처리 일치율 | {report.RejectedActionAccuracy:P0} |",
+            "",
+            "| 제품 | 규칙 분류 | 규칙 처리 | AI 분류 | AI 처리 | 확신 | 판정 | 일치 |",
+            "|---|---|---|---|---|---|---|---|",
+        };
+        foreach (var i in report.Items.OrderBy(i => i.Accepted).ThenBy(i => i.ActionMatch))
+            lines.Add($"| {i.ProductName} | {i.RuleCategory} | {i.RuleAction} | {i.AiCategory} | {i.AiAction} | {i.Confidence:0.00} | {(i.Accepted ? "판정" : "사람에게")} | {(i.ActionMatch ? "○" : i.DirectionMatch ? "△" : "×")} |");
+
+        foreach (var l in lines.Take(14))
+            Console.WriteLine(l);
+        Console.WriteLine("\n틀린 것:");
+        foreach (var i in report.Items.Where(i => !i.ActionMatch))
+            Console.WriteLine($"  {i.ProductName}: 규칙 {i.RuleAction} / AI {i.AiAction} ({i.Confidence:0.00}{(i.Accepted ? "" : ", 사람에게 넘김")}) - {i.AiReason}");
+
+        var md = options.GetValueOrDefault("md") ?? Path.Combine(AppContext.BaseDirectory, $"ai-eval-{DateTime.Now:yyyyMMdd-HHmm}.md");
+        File.WriteAllLines(md, lines);
+        Console.WriteLine($"\n전체 표: {md}");
         return 0;
     }
 
