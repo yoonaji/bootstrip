@@ -1,4 +1,5 @@
 using BootDiet.App.Services;
+using BootDiet.Core;
 using BootDiet.Core.Models;
 using BootDiet.Core.Runtime;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -18,13 +19,97 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly ScanService scanner;
     private readonly ScanSource source;
 
-    public MainWindowViewModel(ScanService scanner, ScanSource source, AppServices? services = null)
+    private readonly Consent? notice;
+
+    /// <param name="notice">첫 실행 고지 확인 기록. null이면 고지를 띄우지 않는다(시험용).</param>
+    public MainWindowViewModel(ScanService scanner, ScanSource source, AppServices? services = null, Consent? notice = null)
     {
         this.scanner = scanner;
         this.source = source;
+        this.notice = notice;
         Services = services ?? AppServices.For(source);
         Bank = new BankViewModel(Services);
         current = Scan;
+    }
+
+    // ───────── 첫 실행 고지 + AI 전송 동의 ─────────
+
+    public string NoticeTitle => ShowFirstRun ? Notices.FirstRunTitle : Notices.AiTransferTitle;
+    public string FirstRunText => Notices.FirstRun;
+    public string AiTransferText => Notices.AiTransfer;
+
+    /// <summary>고지·동의 창을 띄웠는지. 띄운 동안은 스캔하지 않는다.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NoticeTitle))]
+    private bool isNoticeOpen;
+
+    /// <summary>첫 실행 고지 문단을 보여 줄지(아직 확인 안 함).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NoticeTitle))]
+    private bool showFirstRun;
+
+    /// <summary>AI 전송 선택을 보여 줄지(키가 있고 아직 안 골랐거나, 다시 고르기).</summary>
+    [ObservableProperty]
+    private bool showAiChoice;
+
+    /// <summary>키가 있으면 왼쪽 아래에 "AI 사용 설정"을 보여 준다.</summary>
+    public bool HasAiKey => scanner.Ai?.HasKey == true;
+
+    public string AiStatusText => scanner.Ai switch
+    {
+        { HasKey: false } or null => "",
+        { HasModel: true } => "AI 사용: 켜짐",
+        _ => "AI 사용: 꺼짐",
+    };
+
+    /// <summary>앱을 열 때 부른다. 고지나 AI 동의가 필요하면 먼저 묻고, 아니면 바로 스캔한다.</summary>
+    public Task StartAsync()
+    {
+        ShowFirstRun = notice is { IsGranted: false };
+        ShowAiChoice = scanner.Ai?.NeedsConsent == true;
+        if (ShowFirstRun || ShowAiChoice)
+        {
+            IsNoticeOpen = true;
+            return Task.CompletedTask;
+        }
+        return StartScanAsync();
+    }
+
+    /// <summary>고지만 확인(AI는 묻지 않을 때) 또는 AI 없이 쓰기.</summary>
+    [RelayCommand]
+    public Task AcceptWithoutAiAsync() => CloseNotice(ai: false);
+
+    /// <summary>고지 확인 + AI 전송 동의.</summary>
+    [RelayCommand]
+    public Task AcceptWithAiAsync() => CloseNotice(ai: true);
+
+    /// <summary>왼쪽 아래 "AI 사용 설정": AI 전송 선택만 다시 띄운다.</summary>
+    [RelayCommand]
+    public void ChangeAiChoice()
+    {
+        ShowFirstRun = false;
+        ShowAiChoice = true;
+        IsNoticeOpen = true;
+    }
+
+    private Task CloseNotice(bool ai)
+    {
+        if (ShowFirstRun)
+            notice?.Grant();
+        var wasOn = scanner.Ai?.HasModel == true;
+        if (ShowAiChoice && scanner.Ai?.Consent is { } consent)
+        {
+            if (ai) consent.Grant();
+            else consent.Decline();
+        }
+        IsNoticeOpen = false;
+        ShowFirstRun = false;
+        ShowAiChoice = false;
+        OnPropertyChanged(nameof(AiStatusText));
+        // 처음 열 때, 또는 AI를 새로 켰을 때만 스캔한다(AI 판정은 스캔 때 한다).
+        if (Result is null || (!wasOn && scanner.Ai?.HasModel == true))
+            return StartScanAsync();
+        return Task.CompletedTask;
     }
 
     public AppServices Services { get; }

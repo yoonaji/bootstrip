@@ -16,9 +16,9 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var source = ScanSource.FromArgs(desktop.Args ?? []);
-            var vm = new MainWindowViewModel(new ScanService(AiService.Default()), source);
+            var vm = new MainWindowViewModel(new ScanService(AiService.Default()), source, notice: BootDiet.Core.Consent.Notice());
             desktop.MainWindow = new MainWindow { DataContext = vm };
-            _ = vm.StartScanAsync();
+            _ = vm.StartAsync();
         }
         base.OnFrameworkInitializationCompleted();
     }

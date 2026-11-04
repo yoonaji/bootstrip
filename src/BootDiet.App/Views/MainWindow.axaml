@@ -18,6 +18,7 @@
     <DataTemplate DataType="vm:HistoryViewModel"><v:HistoryView /></DataTemplate>
   </Window.DataTemplates>
 
+  <Panel>
   <Grid ColumnDefinitions="232,*">
     <!-- 왼쪽 메뉴: 이름, 메뉴 4개, 아래에 뱅킹 모드 -->
     <Border Background="{DynamicResource NavBackground}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,1,0">
@@ -57,6 +58,9 @@
           <Button Classes="quiet" Content="다시 스캔" FontSize="13" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                   Command="{Binding StartScanCommand}" IsEnabled="{Binding !Scan.IsRunning}"
                   ToolTip.Tip="{Binding SourceLabel}" />
+          <Button Classes="link" Content="{Binding AiStatusText}" FontSize="12" HorizontalAlignment="Center"
+                  Command="{Binding ChangeAiChoiceCommand}" IsVisible="{Binding HasAiKey}"
+                  ToolTip.Tip="AI로 정보를 보낼지 다시 고르기" />
         </StackPanel>
 
         <ListBox Classes="nav" ItemsSource="{Binding Nav}" SelectedItem="{Binding SelectedNav}"
@@ -76,4 +80,27 @@
     <!-- 화면 -->
     <ContentControl Grid.Column="1" Content="{Binding Current}" />
   </Grid>
+
+  <!-- 첫 실행 고지 + AI 전송 동의. 고르기 전에는 스캔하지 않는다 -->
+  <Panel IsVisible="{Binding IsNoticeOpen}" Name="NoticeLayer">
+    <Border Background="{DynamicResource PageBackground}" Opacity="0.9" />
+    <Border Classes="card" Width="560" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <StackPanel Spacing="18">
+        <TextBlock Classes="h2" Text="{Binding NoticeTitle}" />
+        <TextBlock Classes="body" Text="{Binding FirstRunText}" TextWrapping="Wrap" LineHeight="22" IsVisible="{Binding ShowFirstRun}" />
+        <Border Classes="badge" CornerRadius="14" Padding="18,14" IsVisible="{Binding ShowAiChoice}">
+          <StackPanel Spacing="8">
+            <TextBlock Text="AI 기능과 정보 전송" FontWeight="Bold" IsVisible="{Binding ShowFirstRun}" />
+            <TextBlock Classes="small" Text="{Binding AiTransferText}" TextWrapping="Wrap" LineHeight="20" />
+          </StackPanel>
+        </Border>
+        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+          <Button Classes="quiet" Content="AI 없이 쓰기" Command="{Binding AcceptWithoutAiCommand}" IsVisible="{Binding ShowAiChoice}" />
+          <Button Classes="accent" Content="동의하고 AI 함께 쓰기" Command="{Binding AcceptWithAiCommand}" IsVisible="{Binding ShowAiChoice}" />
+          <Button Classes="accent" Content="확인했어요" Command="{Binding AcceptWithoutAiCommand}" IsVisible="{Binding !ShowAiChoice}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </Panel>
+  </Panel>
 </Window>
