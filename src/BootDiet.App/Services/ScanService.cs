@@ -43,6 +43,13 @@ public sealed record ScanResult(
 
     /// <summary>AI 판정 결과 요약(예: "AI가 확인 38개 중 35개를 판정"). AI를 쓰지 않았으면 null.</summary>
     public string? AiNote { get; init; }
+
+    /// <summary>규칙 DB의 제품별 사실(쓰는 은행, 설치 버전, 알려진 취약 버전). 키는 제품 Id.</summary>
+    public IReadOnlyDictionary<string, ModuleFacts> Facts { get; init; } = new Dictionary<string, ModuleFacts>();
+
+    /// <summary>금융 모듈 기본 처리(사용 안 함 또는 제거)를 반영한 결과. 화면은 이것으로 그린다.</summary>
+    public ScanResult WithFinancialDefault(FinancialDefault choice) =>
+        this with { Products = FinancialDefaults.Apply(Products, Facts, choice) };
 }
 
 /// <summary>스캔 진행 화면(S0)에 보여 줄 한 단계.</summary>
@@ -91,7 +98,8 @@ public sealed class ScanService(AiService? ai = null)
         var windowsDir = OperatingSystem.IsWindows() ? Environment.GetFolderPath(Environment.SpecialFolder.Windows) : null;
         var collected = components.Count;
         var filtered = WindowsOwnFilter.Apply(components, windowsDir);
-        var all = new Classifier(RuleSet.Load(rulesPath)).ClassifyProducts(filtered);
+        var rules = RuleSet.Load(rulesPath);
+        var all = new Classifier(rules).ClassifyProducts(filtered);
         var products = WindowsOwnFilter.DropFirewallOnlyProducts(all);
         cancel.ThrowIfCancellationRequested();
 
@@ -142,6 +150,7 @@ public sealed class ScanService(AiService? ai = null)
             Snapshot = runtime,
             Risks = risks,
             AiNote = aiNote,
+            Facts = products.ToDictionary(p => p.Id, p => ModuleFacts.For(p, rules)),
         };
     }
 

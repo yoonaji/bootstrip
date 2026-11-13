@@ -54,6 +54,21 @@ public class ScreenTests
         list.SelectCommand.Execute(locked);
         Shot(window, $"products-locked-{theme}");
 
+        // 알려진 취약 버전(TouchEn nxKey 1.0.0.80)은 상세 맨 위에 경고 상자를 보여 준다. 노트북 표본에는 없어 만들어 넣는다.
+        var rules = BootDiet.Core.Rules.RuleSet.Load(Path.Combine(AppContext.BaseDirectory, "rules", "rules.json"));
+        var touch = new BootDiet.Core.Classifier(rules).ClassifyProducts([new BootDiet.Core.Models.Component
+        {
+            Name = "TouchEn nxKey", Kind = BootDiet.Core.Models.ComponentKind.Service,
+            ExecutablePath = @"C:\Program Files (x86)\RaonSecure\TouchEn nxKey\CKSetup.exe", FileVersion = "1.0.0.80",
+        }]).Single();
+        var facts = BootDiet.Core.Rules.ModuleFacts.For(touch, rules);
+        touch = BootDiet.Core.Rules.FinancialDefaults.Apply(touch, facts, BootDiet.Core.Rules.FinancialDefault.Disable);
+        var vulnItem = new ProductItemViewModel(touch, null, null, null, facts);
+        Assert.True(vulnItem.HasKnownVuln);
+        Assert.True(vulnItem.IsRemoveRecommended);
+        list.SelectCommand.Execute(vulnItem);
+        Shot(window, $"products-vuln-{theme}");
+
         vm.GoTo("preview");
         Assert.IsType<PreviewViewModel>(vm.Current);
         window.Close();

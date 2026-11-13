@@ -1,6 +1,7 @@
 using BootDiet.App.Services;
 using BootDiet.Core.Ai;
 using BootDiet.Core.Models;
+using BootDiet.Core.Rules;
 using BootDiet.Core.Runtime;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -12,9 +13,10 @@ public sealed partial class ProductItemViewModel : ObservableObject
 {
     private readonly AiService? ai;
 
-    public ProductItemViewModel(Product product, ProductRuntime? runtime, ProductRisk? risk = null, AiService? ai = null)
+    public ProductItemViewModel(Product product, ProductRuntime? runtime, ProductRisk? risk = null, AiService? ai = null, ModuleFacts? facts = null)
     {
         Product = product;
+        Facts = facts ?? ModuleFacts.None;
         Runtime = runtime;
         Risk = risk;
         this.ai = ai;
@@ -57,6 +59,18 @@ public sealed partial class ProductItemViewModel : ObservableObject
 
     public Product Product { get; }
     public ProductRuntime? Runtime { get; }
+
+    // ── 규칙 DB의 사실: 쓰는 은행, 알려진 취약 버전, 회사 설치 가능성 ──
+    public ModuleFacts Facts { get; }
+    public bool HasUsedBy => Facts.HasUsedBy;
+    public IReadOnlyList<string> UsedByLines => Facts.UsedByLines;
+    public string UsedBySource => $"출처: {Facts.UsedBySources}. 은행이 바꿀 수 있습니다.";
+    public bool HasKnownVuln => Facts.KnownVuln is not null;
+    public string KnownVulnText => Facts.VulnText ?? "";
+    public string KnownVulnSource => Facts.VulnSource is { } s ? $"출처: {s}" : "";
+    public string VersionText => Facts.InstalledVersion is { } v ? $"설치된 버전 {v}" : "";
+    public bool HasVersion => Facts.InstalledVersion is not null && Facts.KnownVuln is null && Product.Category == ItemCategory.FinancialSecurity;
+    public bool MayBeCorporate => Facts.MayBeCorporate;
 
     public string Id => Product.Id;
     public string Name => Product.Name;

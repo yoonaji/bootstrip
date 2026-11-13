@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using BootDiet.Core.Actions;
 using BootDiet.Core.Models;
+using BootDiet.Core.Rules;
 
 namespace BootDiet.App.Services;
 
@@ -81,6 +82,38 @@ public sealed class AppData(IReadOnlyList<string> roots, string planFolder)
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidDataException)
         {
             return Policy.Empty(now);
+        }
+    }
+
+    /// <summary>화면 설정 파일(사용자 폴더). 지금은 금융 모듈 기본 처리만 담는다.</summary>
+    public string SettingsFile => Path.Combine(Path.GetDirectoryName(planFolder)!, "settings.json");
+
+    /// <summary>금융 모듈 기본 처리. 고른 적이 없거나 읽지 못하면 "사용 안 함".</summary>
+    public FinancialDefault LoadFinancialDefault()
+    {
+        try
+        {
+            if (!File.Exists(SettingsFile))
+                return FinancialDefault.Disable;
+            var node = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(SettingsFile));
+            return Enum.TryParse<FinancialDefault>(node?["financialDefault"]?.GetValue<string>(), true, out var v) ? v : FinancialDefault.Disable;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException)
+        {
+            return FinancialDefault.Disable;
+        }
+    }
+
+    public void SaveFinancialDefault(FinancialDefault value)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(SettingsFile)!);
+            File.WriteAllText(SettingsFile, new System.Text.Json.Nodes.JsonObject { ["financialDefault"] = value.ToString() }.ToJsonString());
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // 저장하지 못해도 이번 실행에서는 고른 값대로 보여 준다.
         }
     }
 
