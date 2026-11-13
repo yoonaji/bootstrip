@@ -17,6 +17,9 @@ public sealed record VulnRange
     public string? FixedIn { get; init; }
     public IReadOnlyList<string> PathContains { get; init; } = [];
     public required string Title { get; init; }
+
+    /// <summary>상세의 "위험" 줄에 쓰는 짧은 말(예: "KISA가 알린 취약점").</summary>
+    public string? Summary { get; init; }
     public required string Source { get; init; }
     public required string Date { get; init; }
 
@@ -125,9 +128,9 @@ public static class FinancialDefaults
         if (v.Category != ItemCategory.FinancialSecurity || v.Action != RecommendedAction.Remove || v.Source != VerdictSource.Rule)
             return p;
         if (facts.KnownVuln is not null)
-            return p with { Verdict = v with { Reason = $"{v.Reason} 설치된 버전이 알려진 취약 버전이라 기본 처리와 상관없이 제거를 권합니다." } };
+            return p;
         if (choice == FinancialDefault.Remove || !v.CanDisable)
             return p;
-        return p with { Verdict = v with { Action = RecommendedAction.Disable, Reason = $"{v.Reason} 금융 모듈 기본 처리가 \"사용 안 함\"이라 끄기를 추천합니다." } };
+        return p with { Verdict = v with { Action = RecommendedAction.Disable } };
     }
 }

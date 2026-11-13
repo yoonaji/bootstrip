@@ -77,7 +77,6 @@ public class ModuleFactsTests
         var p = Classify(@"C:\Program Files (x86)\RaonSecure\TouchEn nxKey\TKMain.exe", "1.0.0.80");
         var after = FinancialDefaults.Apply(p, ModuleFacts.For(p, TestData.Rules), FinancialDefault.Disable);
         Assert.Equal(RecommendedAction.Remove, after.Verdict.Action);
-        Assert.Contains("알려진 취약 버전", after.Verdict.Reason);
         Assert.Contains("1.0.0.88부터 고쳐졌습니다", ModuleFacts.For(p, TestData.Rules).VulnText);
     }
 
