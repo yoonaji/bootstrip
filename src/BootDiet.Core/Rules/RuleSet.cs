@@ -31,6 +31,18 @@ public sealed record Rule
     /// </summary>
     public IReadOnlyList<ComponentKind> Kinds { get; init; } = [];
 
+    /// <summary>목록에서 이름 오른쪽에 보이는 한 단어 종류(예: "키보드 보안", "전자서명").</summary>
+    public string? Tag { get; init; }
+
+    /// <summary>perApp 규칙에서 앱마다 다른 종류. 키는 파일 이름이나 경로의 일부.</summary>
+    public IReadOnlyDictionary<string, string> TagBy { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>이 제품의 한 단어 종류. TagBy가 맞으면 그것, 아니면 Tag.</summary>
+    public string? TagFor(BootDiet.Core.Models.Product p) =>
+        TagBy.FirstOrDefault(t => p.Components.Any(c =>
+            (c.ExecutablePath ?? c.Command ?? c.Location ?? c.Name).Contains(t.Key, StringComparison.OrdinalIgnoreCase)
+            || c.Name.Contains(t.Key, StringComparison.OrdinalIgnoreCase))).Value ?? Tag;
+
     /// <summary>이 모듈을 쓰는 은행·사이트(금융 모듈). 출처와 확인 날짜를 함께 적는다.</summary>
     public IReadOnlyList<SiteUse> UsedBy { get; init; } = [];
 

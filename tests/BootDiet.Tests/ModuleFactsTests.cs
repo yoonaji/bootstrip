@@ -98,4 +98,16 @@ public class ModuleFactsTests
         var facts = ModuleFacts.For(Classify(@"C:\Program Files\MarkAny\IMGSF50Svc.exe", null), TestData.Rules);
         Assert.True(facts.MayBeCorporate);
     }
+
+    [Theory]
+    [InlineData(@"C:\Program Files\IPinside_LWS\I3GProc.exe", "PC 정보 수집")]
+    [InlineData(@"C:\Program Files (x86)\RaonSecure\TouchEn nxKey\TKMain.exe", "키보드 보안")]
+    [InlineData(@"C:\Users\a\AppData\Local\Programs\Notion\Notion.exe", "메모")]
+    [InlineData(@"C:\Program Files\Kakao\KakaoTalk\KakaoTalk.exe", "메신저")]
+    public void 제품마다_한_단어_종류가_붙는다(string exe, string tag) =>
+        Assert.Equal(tag, ModuleFacts.For(Classify(exe, null), TestData.Rules).Tag);
+
+    [Fact]
+    public void 모든_규칙에_한_단어_종류가_있다() =>
+        Assert.All(TestData.Rules.Rules, r => Assert.False(string.IsNullOrWhiteSpace(r.Tag), r.Id));
 }

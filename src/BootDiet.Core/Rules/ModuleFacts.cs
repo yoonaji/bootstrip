@@ -34,12 +34,19 @@ public sealed record ModuleFacts(
 {
     public static readonly ModuleFacts None = new([], null, null, false);
 
+    /// <summary>목록에 보이는 한 단어 종류(규칙의 tag). 규칙에 없으면 null.</summary>
+    public string? Tag { get; init; }
+
     /// <summary>규칙 DB에서 이 제품의 사실을 찾는다. 규칙에 걸리지 않은 제품은 None.</summary>
     public static ModuleFacts For(Product p, RuleSet rules)
     {
         var rule = p.Verdict.RuleId is { } id ? rules.Rules.FirstOrDefault(r => r.Id == id) : null;
         if (rule is null)
-            return None;
+        {
+            // 파일이 없어 "깨진 항목"이 된 제품도 규칙에 걸리면 무슨 앱인지는 알려 준다.
+            var tag = rules.Rules.FirstOrDefault(r => p.Components.Any(r.Applies))?.TagFor(p);
+            return tag is null ? None : None with { Tag = tag };
+        }
         string? installed = null;
         VulnRange? hit = null;
         foreach (var range in rule.KnownVulns)
@@ -54,7 +61,7 @@ public sealed record ModuleFacts(
             }
         }
         installed ??= VersionOf(p, []);
-        return new ModuleFacts(rule.UsedBy, installed, hit, rule.MayBeCorporate);
+        return new ModuleFacts(rule.UsedBy, installed, hit, rule.MayBeCorporate) { Tag = rule.TagFor(p) };
     }
 
     /// <summary>파일 버전. pathContains가 있으면 경로에 그 글자가 든 파일만 본다. "1, 0, 0, 26"도 "1.0.0.26"으로 읽는다.</summary>
