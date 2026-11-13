@@ -72,6 +72,46 @@ public sealed partial class ProductItemViewModel : ObservableObject
     public bool HasVersion => Facts.InstalledVersion is not null && Facts.KnownVuln is null && Product.Category == ItemCategory.FinancialSecurity;
     public bool MayBeCorporate => Facts.MayBeCorporate;
 
+    /// <summary>상세 맨 위 "종류 · 회사" 줄.</summary>
+    public string TagAndVendor => string.Join(" · ", new[] { Tag, Product.Vendor ?? "" }.Where(x => x.Length > 0));
+
+    /// <summary>"설치된 버전 1.0.0.80 (고친 버전 1.0.0.88)". 고친 버전을 모르면 괄호 없이.</summary>
+    public string VersionLine => Facts.InstalledVersion is not { } v ? ""
+        : Facts.KnownVuln?.FixedIn is { } f ? $"설치된 버전 {v} (고친 버전 {f})" : $"설치된 버전 {v}";
+    public bool HasVersionLine => VersionLine.Length > 0;
+
+    /// <summary>상세의 "위험" 칸. 한 줄 제목과 작은 글씨 설명.</summary>
+    public IReadOnlyList<DetailWarning> Warnings
+    {
+        get
+        {
+            var list = new List<DetailWarning>();
+            if (Facts.KnownVuln is { } k)
+                list.Add(new("알려진 취약 버전", k.Summary ?? k.Title));
+            if (CannotDisable)
+                list.Add(new("끌 수 없음", "관리자도 못 꺼요. 제거만 가능해요."));
+            if (HasExposedPorts)
+                list.Add(new($"외부 접속 포트 {ExposedPortCount}개", string.Join(", ", Runtime!.Ports.Where(p => p.IsExposed).Select(p => $"{p.Protocol} {p.Port}").Distinct())));
+            if (Risk is { } r && r.Signals.Count > 0)
+                list.Add(new($"이상 징후 {r.Score}점 · {r.LevelLabel}", string.Join("\n", r.Signals.Select(x => x.Label))));
+            if (Facts.MayBeCorporate)
+                list.Add(new("회사가 설치했을 수 있음", "회사 PC라면 지우지 마세요."));
+            return list;
+        }
+    }
+    public bool HasWarnings => Warnings.Count > 0;
+
+    public IReadOnlyList<SiteUse> UsedBy => Facts.UsedBy;
+
+    /// <summary>오른쪽 아래 "출처"를 누르면 보이는 줄들.</summary>
+    public IReadOnlyList<string> SourceLines =>
+    [
+        $"판정: {SourceLabel}",
+        .. Facts.UsedBy.GroupBy(u => (u.Source, u.Checked)).Select(g => $"쓰는 곳: {g.Key.Source} ({g.Key.Checked} 확인)"),
+        .. Facts.KnownVuln is { } k ? [$"취약 버전: {k.Title} {k.Source} ({k.Date})"] : Array.Empty<string>(),
+        .. RiskLines.Select(l => $"이상 징후: {l}"),
+    ];
+
     /// <summary>목록에서 이름 오른쪽에 보이는 한 단어 종류. 규칙의 tag, 없으면 분류에서.</summary>
     public string Tag => Facts.Tag ?? Labels.ShortCategory(Product.Category);
     public bool HasTag => Tag.Length > 0;
@@ -249,6 +289,11 @@ public sealed partial class ProductItemViewModel : ObservableObject
             || Product.Components.Any(x => x.Name.Contains(s, StringComparison.OrdinalIgnoreCase)
                                         || (x.ExecutablePath?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false));
     }
+}
+
+public sealed record DetailWarning(string Title, string Detail)
+{
+    public bool HasDetail => Detail.Length > 0;
 }
 
 public sealed record ComponentGroupViewModel(string Title, IReadOnlyList<ComponentRowViewModel> Items)

@@ -69,6 +69,12 @@ public class ScreenTests
         list.SelectCommand.Execute(vulnItem);
         Shot(window, $"products-vuln-{theme}");
 
+        // 출처는 오른쪽 아래 버튼을 누르면 작은 창으로 보인다.
+        var sources = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(window).OfType<Button>().First(b => b.Content as string == "출처");
+        sources.Flyout!.ShowAt(sources);
+        Shot(window, $"products-sources-{theme}");
+        sources.Flyout.Hide();
+
         vm.GoTo("preview");
         Assert.IsType<PreviewViewModel>(vm.Current);
         window.Close();
