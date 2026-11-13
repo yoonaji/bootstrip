@@ -72,6 +72,12 @@ public sealed partial class ProductItemViewModel : ObservableObject
     public bool HasVersion => Facts.InstalledVersion is not null && Facts.KnownVuln is null && Product.Category == ItemCategory.FinancialSecurity;
     public bool MayBeCorporate => Facts.MayBeCorporate;
 
+    /// <summary>목록에서 이름 오른쪽에 보이는 한 단어 종류. 규칙의 tag, 없으면 분류에서.</summary>
+    public string Tag => Facts.Tag ?? Labels.ShortCategory(Product.Category);
+    public bool HasTag => Tag.Length > 0;
+    /// <summary>이름 바로 뒤에 붙는 글(앞에 띄어쓰기 두 칸).</summary>
+    public string TagText => HasTag ? $"  {Tag}" : "";
+
     public string Id => Product.Id;
     public string Name => Product.Name;
     public string? Vendor => Product.Vendor;
