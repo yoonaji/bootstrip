@@ -53,6 +53,21 @@ public static class Labels
         _ => "미분류",
     };
 
+    /// <summary>규칙에 종류(tag)가 없을 때 목록에 보이는 한 단어. 판정할 근거가 없는 제품은 비워 둔다.</summary>
+    public static string ShortCategory(ItemCategory c) => c switch
+    {
+        ItemCategory.WindowsBuiltIn => "Windows",
+        ItemCategory.HardwareUtility => "하드웨어",
+        ItemCategory.FinancialSecurity => "금융 보안",
+        ItemCategory.CorporateSecurity => "회사 보안",
+        ItemCategory.Game => "게임",
+        ItemCategory.Updater => "업데이트",
+        ItemCategory.GeneralApp => "앱",
+        ItemCategory.Broken => "깨진 항목",
+        ItemCategory.Suspicious => "의심 인증서",
+        _ => "",
+    };
+
     public static string Recommendation(RecommendedAction a) => a switch
     {
         RecommendedAction.Keep => "유지",

@@ -1,5 +1,6 @@
 using BootDiet.App.Services;
 using BootDiet.Core.Models;
+using BootDiet.Core.Rules;
 using BootDiet.Core.Runtime;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -107,6 +108,39 @@ public sealed partial class MainWindowViewModel : ObservableObject
         History?.Reload();
     }
 
+    private FinancialDefault financialDefault = FinancialDefault.Disable;
+
+    /// <summary>금융 모듈 기본 처리. 바꾸면 저장하고 제품·요약·미리보기를 다시 만든다.</summary>
+    public FinancialDefault FinancialDefault
+    {
+        get => financialDefault;
+        set
+        {
+            if (value == financialDefault)
+                return;
+            financialDefault = value;
+            Services.Data.SaveFinancialDefault(value);
+            if (Result is null)
+                return;
+            var onProducts = ReferenceEquals(Current, Products);
+            var selectedId = Products?.Selected?.Id;
+            BuildViews();
+            if (selectedId is not null)
+                Products!.SelectById(selectedId);
+            if (onProducts)
+                Current = Products!;
+            OnPropertyChanged();
+        }
+    }
+
+    private void BuildViews()
+    {
+        var view = Result!.WithFinancialDefault(financialDefault);
+        Products = new ProductListViewModel(view, scanner.Ai, financialDefault, v => FinancialDefault = v);
+        Summary = new SummaryViewModel(view, Products, this, Before);
+        Preview = new PreviewViewModel(view, Products, Services, this);
+    }
+
     [RelayCommand]
     public async Task StartScanAsync()
     {
@@ -119,9 +153,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
             var r = await scanner.ScanAsync(source, progress);
             Before = await LoadBeforeAsync(r);
             Result = r;
-            Products = new ProductListViewModel(r, scanner.Ai);
-            Summary = new SummaryViewModel(r, Products, this, Before);
-            Preview = new PreviewViewModel(r, Products, Services, this);
+            financialDefault = Services.Data.LoadFinancialDefault();
+            BuildViews();
             History = new HistoryViewModel(Services, this);
             Bank.Reload();
             OnPropertyChanged(nameof(SourceLabel));

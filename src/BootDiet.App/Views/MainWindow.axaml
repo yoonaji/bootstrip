@@ -5,6 +5,7 @@
         x:Class="BootDiet.App.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="부트다이어트"
+        Icon="/Assets/Icon/AppIcon.ico"
         Width="1280" Height="840" MinWidth="1040" MinHeight="640"
         Foreground="{DynamicResource TextBrush}"
         Background="{DynamicResource PageBackground}"

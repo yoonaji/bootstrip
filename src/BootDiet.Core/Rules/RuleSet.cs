@@ -31,6 +31,27 @@ public sealed record Rule
     /// </summary>
     public IReadOnlyList<ComponentKind> Kinds { get; init; } = [];
 
+    /// <summary>목록에서 이름 오른쪽에 보이는 한 단어 종류(예: "키보드 보안", "전자서명").</summary>
+    public string? Tag { get; init; }
+
+    /// <summary>perApp 규칙에서 앱마다 다른 종류. 키는 파일 이름이나 경로의 일부.</summary>
+    public IReadOnlyDictionary<string, string> TagBy { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>이 제품의 한 단어 종류. TagBy가 맞으면 그것, 아니면 Tag.</summary>
+    public string? TagFor(BootDiet.Core.Models.Product p) =>
+        TagBy.FirstOrDefault(t => p.Components.Any(c =>
+            (c.ExecutablePath ?? c.Command ?? c.Location ?? c.Name).Contains(t.Key, StringComparison.OrdinalIgnoreCase)
+            || c.Name.Contains(t.Key, StringComparison.OrdinalIgnoreCase))).Value ?? Tag;
+
+    /// <summary>이 모듈을 쓰는 은행·사이트(금융 모듈). 출처와 확인 날짜를 함께 적는다.</summary>
+    public IReadOnlyList<SiteUse> UsedBy { get; init; } = [];
+
+    /// <summary>알려진 취약 버전 범위. 설치된 버전이 여기 들면 기본 처리와 상관없이 제거를 추천한다.</summary>
+    public IReadOnlyList<VulnRange> KnownVulns { get; init; } = [];
+
+    /// <summary>true면 회사가 설치하기도 하는 모듈이다. 상세에 "회사가 설치했으면 지우지 마세요"를 붙인다.</summary>
+    public bool MayBeCorporate { get; init; }
+
     public bool Applies(Component c) => (Kinds.Count == 0 || Kinds.Contains(c.Kind)) && Match.IsMatch(c);
 }
 

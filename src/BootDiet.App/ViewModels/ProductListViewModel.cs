@@ -3,6 +3,7 @@ using System.ComponentModel;
 using BootDiet.App.Services;
 using BootDiet.Core.Ai;
 using BootDiet.Core.Models;
+using BootDiet.Core.Rules;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -23,13 +24,16 @@ public sealed partial class ProductListViewModel : ObservableObject
 
     private readonly ScanResult scan;
     private readonly AiService? ai;
+    private readonly Action<FinancialDefault>? onFinancialDefault;
 
-    public ProductListViewModel(ScanResult scan, AiService? ai = null)
+    public ProductListViewModel(ScanResult scan, AiService? ai = null, FinancialDefault financialDefault = FinancialDefault.Remove, Action<FinancialDefault>? onFinancialDefault = null)
     {
         this.scan = scan;
         this.ai = ai;
+        this.onFinancialDefault = onFinancialDefault;
+        financialDefaultIndex = financialDefault == FinancialDefault.Remove ? 1 : 0;
         All = scan.Products
-            .Select(p => new ProductItemViewModel(p, scan.Runtime.GetValueOrDefault(p.Id), scan.Risks.GetValueOrDefault(p.Id), ai))
+            .Select(p => new ProductItemViewModel(p, scan.Runtime.GetValueOrDefault(p.Id), scan.Risks.GetValueOrDefault(p.Id), ai, scan.Facts.GetValueOrDefault(p.Id)))
             .ToList();
         foreach (var item in All)
             item.PropertyChanged += OnItemChanged;
@@ -46,6 +50,21 @@ public sealed partial class ProductListViewModel : ObservableObject
     }
 
     public IReadOnlyList<ProductItemViewModel> All { get; }
+
+    // ── 금융 모듈 기본 처리: 규칙이 "제거"라고 한 금융 모듈을 끌지, 지울지 사용자가 고른다. ──
+    public IReadOnlyList<string> FinancialDefaultNames { get; } = ["사용 안 함", "제거"];
+
+    /// <summary>0 = 사용 안 함, 1 = 제거.</summary>
+    [ObservableProperty]
+    private int financialDefaultIndex;
+
+    /// <summary>금융 모듈이 있을 때만 고르는 칸을 보여 준다.</summary>
+    public bool HasFinancial => All.Any(i => i.Product.Category == ItemCategory.FinancialSecurity);
+
+    partial void OnFinancialDefaultIndexChanged(int value) =>
+        onFinancialDefault?.Invoke(value == 1 ? FinancialDefault.Remove : FinancialDefault.Disable);
+
+    public void SelectById(string id) => Select(All.FirstOrDefault(i => i.Id == id));
     public ObservableCollection<ProductGroupViewModel> Groups { get; }
     public IReadOnlyList<CategoryFilter> Categories { get; }
 

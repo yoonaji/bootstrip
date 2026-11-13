@@ -1,13 +1,18 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:BootDiet.App.ViewModels"
+             xmlns:c="using:BootDiet.App.Controls"
              x:Class="BootDiet.App.Views.ScanView"
              x:DataType="vm:ScanViewModel">
   <!-- S0 스캔 진행. 읽기만 하고 PC는 바꾸지 않는다. -->
   <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="480" Spacing="16">
     <TextBlock Text="이 PC를 살펴보는 중" Classes="h1" />
     <TextBlock Text="읽기만 해요. 아무것도 바꾸지 않아요." Classes="muted" FontSize="15" TextWrapping="Wrap" />
-    <ProgressBar Value="{Binding Percent}" Minimum="0" Maximum="100" Height="8" CornerRadius="999" Margin="0,16,0,0"
+    <!-- 진행만큼 흰담비가 달린다. 코끝이 막대 끝에 닿게 맞춘다. -->
+    <c:RunningStoat Height="56" Margin="0,16,0,-12" Percent="{Binding Percent}" IsRunning="{Binding IsRunning}"
+                    IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNull}}" />
+    <ProgressBar Value="{Binding Percent}" Minimum="0" Maximum="100" Height="8" CornerRadius="999"
+                 Foreground="{DynamicResource Accent}" Background="{DynamicResource Track}"
                  IsIndeterminate="{Binding !IsRunning}" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNull}}" />
     <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
     <TextBlock Text="{Binding FoundText}" Classes="muted small" />

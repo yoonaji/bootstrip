@@ -9,6 +9,8 @@
     <RootNamespace>BootDiet.App</RootNamespace>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- 작품 로고(흰담비) 앱 아이콘 v02 I1 연보라. 탐색기·작업 표시줄의 exe 아이콘 -->
+    <ApplicationIcon>Assets\Icon\AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,6 +24,8 @@
     <!-- Pretendard (SIL OFL 1.1, Assets/Fonts/OFL.txt). 어느 PC에서나 같은 글꼴로 보이게 앱에 넣는다. -->
     <AvaloniaResource Include="Assets\Fonts\*.otf" />
     <None Include="Assets\Fonts\OFL.txt" CopyToOutputDirectory="PreserveNewest" />
+    <!-- 창 왼쪽 위·Alt+Tab 아이콘 -->
+    <AvaloniaResource Include="Assets\Icon\AppIcon.ico" />
   </ItemGroup>
 
   <ItemGroup>
