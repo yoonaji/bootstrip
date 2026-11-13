@@ -119,4 +119,31 @@ public class ScreenTests
         Shot(window, "scan-error");
         window.Close();
     }
+
+    /// <summary>검사 중 화면: 진행만큼 흰담비가 막대 위를 달린다(시안 v01).</summary>
+    [AvaloniaTheory]
+    [InlineData("light", 1)]
+    [InlineData("light", 5)]
+    [InlineData("dark", 7)]
+    public void 검사_중에는_흰담비가_진행만큼_달린다(string theme, int step)
+    {
+        Avalonia.Application.Current!.RequestedThemeVariant = theme == "dark" ? ThemeVariant.Dark : ThemeVariant.Light;
+        var vm = new MainWindowViewModel(new ScanService(), new ScanSource(TestApp.Sample("laptop4-runtime.json")));
+        vm.Scan.Begin();
+        vm.Scan.Report(new ScanProgress(step, 9, "서비스 읽는 중", step * 37));
+        var window = new MainWindow { DataContext = vm };
+        window.Show();
+        Assert.Same(vm.Scan, vm.Current);
+        Shot(window, $"scan-running-{theme}-{step}");
+        window.Close();
+    }
+
+    [Fact]
+    public void 흰담비_코끝이_진행_끝에_오고_막대_밖으로_나가지_않는다()
+    {
+        // 높이 48이면 그림 폭 90, 코끝은 왼쪽에서 82.5.
+        Assert.Equal(0, BootDiet.App.Controls.RunningStoat.LeftFor(0, 480, 48));
+        Assert.Equal(240 - 82.5, BootDiet.App.Controls.RunningStoat.LeftFor(50, 480, 48), 3);
+        Assert.Equal(480 - 90, BootDiet.App.Controls.RunningStoat.LeftFor(100, 480, 48), 3);
+    }
 }
