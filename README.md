@@ -123,6 +123,12 @@ dotnet publish src/BootDiet.Cli -c Release -r win-x64 --self-contained -p:Publis
 - 제거 프로그램이 끝나면('설치된 앱'에서 항목이 사라지면) 다시 스캔해서 남은 구성 요소(서비스·드라이버·인증서 등)를 보여 줍니다.
 - 제거 시험용: `bootdiet test-item add-installed`는 사용자 전용 시험 항목과 '설치된 앱' 항목을 만들고, 그 제거 명령은 이 두 항목만 지웁니다.
 
+## 보안
+
+부트다이어트는 관리자 권한으로 동작하므로 이 프로그램 자체의 보안을 따로 관리합니다.
+취약점은 공개 이슈 말고 **Security → Report a vulnerability**로 제보해 주세요. 범위와 처리 절차는 [SECURITY.md](SECURITY.md)에 있습니다.
+모든 PR에서 빌드·테스트, CodeQL, 의존성 취약점 검사, 비밀 정보 검사가 자동으로 돕니다.
+
 ## 다음 단계
 
 - 2단계 남은 것: 서명 유효성 검증(WinVerifyTrust). 수집기 7종(시작 앱·서비스·드라이버·예약 작업·루트 인증서·방화벽·스토어 앱)은 완료
