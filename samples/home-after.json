@@ -8332,7 +8332,7 @@
       "signer": "Microsoft Corporation"
     },
     {
-      "name": "OneDrive Reporting Task-S-1-5-21-1779236417-3204115025-2402204958-1001",
+      "name": "OneDrive Reporting Task-S-1-5-21-0-0-0-1001",
       "kind": "ScheduledTask",
       "scope": "Machine",
       "location": "작업 스케줄러 \\",
@@ -8347,7 +8347,7 @@
       "signer": "Microsoft Corporation"
     },
     {
-      "name": "OneDrive Startup Task-S-1-5-21-1779236417-3204115025-2402204958-1001",
+      "name": "OneDrive Startup Task-S-1-5-21-0-0-0-1001",
       "kind": "ScheduledTask",
       "scope": "Machine",
       "location": "작업 스케줄러 \\",
@@ -8376,7 +8376,7 @@
       "signer": "J's Future Corp."
     },
     {
-      "name": "ZoomUpdateTaskUser-S-1-5-21-1779236417-3204115025-2402204958-1001",
+      "name": "ZoomUpdateTaskUser-S-1-5-21-0-0-0-1001",
       "kind": "ScheduledTask",
       "scope": "Machine",
       "location": "작업 스케줄러 \\",
@@ -8391,7 +8391,7 @@
       "signer": "Zoom Communications, Inc."
     },
     {
-      "name": "Agent Activation Runtime\\S-1-5-21-1779236417-3204115025-2402204958-1001",
+      "name": "Agent Activation Runtime\\S-1-5-21-0-0-0-1001",
       "kind": "ScheduledTask",
       "scope": "Machine",
       "location": "작업 스케줄러 \\Agent Activation Runtime",
